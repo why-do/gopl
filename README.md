@@ -1,36 +1,15 @@
 # gopl
 
-#### Description
 Go程序设计语言（The Go Programming Language）笔记
 
-#### Software Architecture
-Software architecture description
+## 目录结构
 
-#### Installation
+1. 每章节的示例，放在对应的 chX 目录下
+2. 在 chX 目录下的 chX.md 是该章节未做整理的笔记
+3. 在 exerciseX 目录下的 exerciseX.md 是该章节的所有习题。我应该会把题目原样抄下来
+4. 习题的解答发在对应的 exerciseX 目录下，每道题建一个目录放代码。我的目标是全部做一遍
+5. 目录 output 下会存放我整理的笔记。我希望把原本书里分散在几个章节里的，但是有关联的一系列的内容整理成一篇。
 
-1. xxxx
-2. xxxx
-3. xxxx
+## 状态更新
 
-#### Instructions
-
-1. xxxx
-2. xxxx
-3. xxxx
-
-#### Contribution
-
-1. Fork the repository
-2. Create Feat_xxx branch
-3. Commit your code
-4. Create Pull Request
-
-
-#### Gitee Feature
-
-1. You can use Readme\_XXX.md to support different languages, such as Readme\_en.md, Readme\_zh.md
-2. Gitee blog [blog.gitee.com](https://blog.gitee.com)
-3. Explore open source project [https://gitee.com/explore](https://gitee.com/explore)
-4. The most valuable open source project [GVP](https://gitee.com/gvp)
-5. The manual of Gitee [https://gitee.com/help](https://gitee.com/help)
-6. The most popular members  [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
++ 2019-02-08 决定开始第二遍仔细读《Go程序设计语言》，这次要整理个笔记出来。
