@@ -10,5 +10,10 @@
 + 练习1.5：改变利萨如程序的画板颜色为绿色黑底来增加真实性。使用color.RGBA{0xRR, 0xGG, 0xBB, 0xff}创建一种web颜色 #RRGGBB，每一对十六进制数字表示组成一个像素红、绿、蓝分量的亮度。
 + 练习1.6：通过在画板中添加更多颜色，然后通过有趣的方式改变 SetColorIndex 的第三个参数，修改利萨如程序来产生多种色彩的图片。
 
+# 1.5 获取一个 URL
++ 练习1.7：函数io.Copy(dst, src)从src读，并且写入dst。使用它代替ioutil.ReadAll来复制响应内容到os.Stdout，这样不需要装下整个响应数据流到缓冲区。确保检查io.Copy返回的错误结果。
++ 练习1.8：修改fetch程序添加一个 http:// 前缀（假如该URL参数缺失协议前缀）。可能会用到strings.HasPrefix。
++ 练习1.9：修改fetch来输出HTTP的状态码，可以在resp.Status中找到它。
+
 # 1.6 并发获取多个 URL
 + TODO：练习1.3
