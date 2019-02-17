@@ -11,7 +11,7 @@ const (
 	cells         = 100                 // 网格单元的个数
 	xyrange       = 30.0                // 坐标轴的范围，-xyrange ~ xyrange
 	xyscale       = width / 2 / xyrange // x 或 y 轴上每个单位长度的像素
-	zscale        = height * 0.04       // z轴上每个单位长度的像素
+	zscale        = height * 0.4       // z轴上每个单位长度的像素
 	angle         = math.Pi / 6         // x、y轴的角度，30度
 )
 
@@ -48,5 +48,5 @@ func corner(i, j int) (float64, float64) {
 
 func f(x, y float64) float64 {
 	r := math.Hypot(x, y) // 到(0,0)的距离
-	return math.Sin(r)
+	return math.Sin(r) / r
 }

@@ -43,10 +43,11 @@ var         //定义变量
   + bool、byte、rune、string、error
 + 函数
   + make、len、cap、new、append、copy、close、delete
-  + complex、real、imag
+  + complex、real、imag ： 复数相关
   + panic、recover
 
 这些名称不是预留的，可以在声明中使用它们。也可能会看到对其中的名称进行重声明，但是要知道这会有冲突的风险。
+
 
 ## 命名规则
 单词组合时，使用驼峰式。如果是缩写，比如：ASCII或HTML，要么全大写，要么全小写。比如组合 html 和 escape，可以是下面几种写法：
