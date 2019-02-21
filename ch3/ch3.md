@@ -11,7 +11,7 @@ Go的数据类型分四大类：
 3. 引用类型（reference type）
     + 指针（pointer）
     + 切片（slice）
-    + 哈希表（map）
+    + 散列表（map）
     + 函数（function）
     + 通道（channel）
 4. 接口类型（interface type）
