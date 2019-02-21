@@ -18,7 +18,8 @@ func rotate(n int, s []int) {
 
 func main() {
 	l := [6]int{1, 2, 3, 4, 5, 6}
-	fmt.Println(l)
-	rotate(3, l[:])
-	fmt.Println(l)
+	n := 3
+	fmt.Println(l, n)
+	rotate(n, l[:])
+	fmt.Println(l, n)
 }
