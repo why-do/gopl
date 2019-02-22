@@ -82,3 +82,51 @@ $ go run main.go
 1010011010
 */
 ```
+
+## 打印结构体
+打印结构体的时候，使用副词#可以使结构化符号%v以类似Go语法的方式输出对象，这个方法里面包含了成员变量的名字：
+```go
+package main
+
+import "fmt"
+
+// 这可以表示一个坐标
+type Point struct {
+	X, Y int
+}
+
+// 坐标加上半径就是一个圆
+type Circle struct {
+	Point
+	Radius int
+}
+
+// 圆加上辐条数，这表示一个轮子
+type Wheel struct {
+	Circle
+	Spokes int
+}
+
+var w Wheel
+
+func main() {
+	w = Wheel{Circle{Point{8, 8}, 5}, 20}
+	w = Wheel{
+		Circle: Circle{
+			Point:  Point{X: 8, Y: 8},
+			Radius: 5,
+		},
+		Spokes: 20,
+	}
+
+	fmt.Printf("%v\n", w)
+	fmt.Printf("%#v\n", w)
+}
+
+/* 执行结果
+PS H:\Go\src\gopl\ch4\embed> go run main.go
+{{{8 8} 5} 20}
+main.Wheel{Circle:main.Circle{Point:main.Point{X:8, Y:8}, Radius:5}, Spokes:20}
+PS H:\Go\src\gopl\ch4\embed>
+*/
+```
