@@ -17,6 +17,80 @@ Printf 函数有超过10个各种转义字符，Go 程序员称为 verb。下表
 
 以ln结尾的，比如fmt.Println，使用%v的方式来格式化参数，并且在最后追加换行符。
 
+## 更详细的占位符说明
+上面的表格比较概括，而且也不全，对于不同的类型，还有不同的细节。所有的说明都在fmt包的doc.go文档里有详细的说明：http://docscn.studygolang.com/src/fmt/doc.go
+
+**普通占位符**：  
+| 占位符 | 说明 | 举例 | 输出 |
+|-----|-----|-----|-----|
+| %v | 相应值的默认格式。 | Printf("%v", people) | {zhangsan} |
+| %+v | 打印结构体时，会添加字段名 | Printf("%+v", people) | {Name:zhangsan} |
+| %#v | 相应值的Go语法表示 | Printf("%#v", people)  | main.Human{Name:"zhangsan"} |
+| %T | 相应值的类型的Go语法表示 | Printf("%T", people) | main.Human |
+| %% | 字面上的百分号，并非值的占位符 | Printf("%%") | % |
+
+**布尔占位符**：  
+| 占位符 | 说明 | 举例 | 输出 |
+|-----|-----|-----|-----|
+| %t | true 或 false。 | Printf("%t", true) | true |
+
+**整数占位符**：  
+| 占位符 | 说明 | 举例 | 输出 |
+|-----|-----|-----|-----|
+| %b | 二进制表示 | Printf("%b", 5) | 101
+| %c | 相应Unicode码点所表示的字符 | Printf("%c", 0x4E2D) | 中 |
+| %d | 十进制表示 | Printf("%d", 0x12) | 18 |
+| %o | 八进制表示 | Printf("%d", 10) | 12 |
+| %q | 单引号围绕的字符字面值，由Go语法安全地转义 | Printf("%q", 0x4E2D) | '中' |
+| %x | 十六进制表示，字母形式为小写 a-f | Printf("%x", 13) | d |
+| %X | 十六进制表示，字母形式为大写 A-F | Printf("%x", 13) | D |
+| %U | Unicode格式，相当于 "%04X" 加上前导 "U+" | Printf("%U", 0x4E2D) | U+4E2D |
+
+**浮点数和复数**：
+| 占位符 | 说明 | 举例 | 输出 |
+|-----|-----|-----|-----|
+| %b | 无小数部分的，指数为二的幂的科学计数法，与 strconv.FormatFloat 的 'b' 转换格式一致。例如 -123456p-78 |
+| %e | 科学计数法，例如 -1234.456e+78 | Printf("%e", 10.2) | 1.020000e+01 |
+| %E | 科学计数法，例如 -1234.456E+78 | Printf("%e", 10.2) | 1.020000E+01 |
+| %f | 有小数点而无指数，例如 123.456 | Printf("%f", 10.2) | 10.200000 |
+| %g | 根据情况选择 %e 或 %f 以产生更紧凑的（无末尾的0）输出 | Printf("%g", 10.20) | 10.2 |
+| %G | 根据情况选择 %E 或 %f 以产生更紧凑的（无末尾的0）输出 | Printf("%G", 10.20+2i) | (10.2+2i) |
+
+**指针**：  
+| 占位符 | 说明 | 举例 | 输出 |
+|-----|-----|-----|-----|
+| %p | 十六进制表示，前缀 0x  | Printf("%p", &people) | 0x4f57f0 |
+
+**其他标记（副词）**：
++ "+" ： 总打印数值的正负号；对于%q（%+q）保证只输出字符的编码。`fmt.Printf("%q %+[1]q\n", "中文") // "中文" "\u4e2d\u6587"`
++ "-" ： 在右侧而非左侧填充空格（左对齐该区域）
++ " " ： (空格)为数值中省略的正负号留出空白（% d）； 以十六进制（% x, % X）打印字符串或切片时，在字节之间用空格隔开
++ "0" ： 填充前导的0而非空格；对于数字，这会将填充移到正负号之后
++ "#" ： 备用格式，不同的类型还不一样。
+
+副词#的备用格式：
+八进制、十六进制，默认没有前导，使用#后会添加前导符号"0"、"0x"、"0X"，防止产生歧义：
+```go
+fmt.Printf("%o %#[1]o\n", 123)        // 173 0173
+fmt.Printf("%x %#[1]x %#[1]X\n", 123) // 7b 0x7b 0X7B
+```
+指针默认有前导，备用格式就是就掉前导：
+```go
+var s string
+fmt.Printf("%p %#[1]p\n", &s) // 0xc00004c240 c00004c240
+```
+对于字符串，%#q有些情况下会输出反引号围绕的字符串，不过测试下来不总是这样：
+```go
+fmt.Printf("%q, %#[1]q\n", "ab\tcd") // "ab\tcd", `ab   cd`
+fmt.Printf("%q, %#[1]q\n", "ab\ncd") // "ab\ncd", "ab\ncd"
+```
+对于Unicode，打印出字符的编码后还会打印该字符：
+```go
+fmt.Printf("%U, %#[1]U", '中') // U+4E2D, U+4E2D '中'
+```
+
+# 使用示例
+
 ## fmt的两个技巧（ch3.md）
 一、%后的副词[1]告知Printf重复使用第一个操作数。  
 二、%o、%x、%X之前的副词#告知Printf输出相应的前缀 0、0x、0X。  
@@ -83,8 +157,16 @@ $ go run main.go
 */
 ```
 
+## 宽度和精度
+操作数字的时候，宽度为该数值占用区域的最小宽度；精度为小数点之后的位数。  
+对于 %g 和 %G 精度是所有数字的总和，而用 %f 打印出来同样是小数，精度是小数点后面的位数。比如：123.45，%.4g 是 "123.5" 而 %.2f 是 "123.45"。
+```go
+const n float64 = 123.45
+fmt.Printf("%.4g %.2[1]f", n) // g:123.5 f:123.45
+```
+
 ## 打印结构体
-打印结构体的时候，使用副词#可以使结构化符号%v以类似Go语法的方式输出对象，这个方法里面包含了成员变量的名字：
+打印结构体的时候，使用副词#或者+可以使结构化符号%v以类似Go语法的方式输出对象，这个方法里面包含了成员变量的名字：
 ```go
 package main
 
@@ -130,3 +212,43 @@ main.Wheel{Circle:main.Circle{Point:main.Point{X:8, Y:8}, Radius:5}, Spokes:20}
 PS H:\Go\src\gopl\ch4\embed>
 */
 ```
+
+## 字符串对齐
+宽度和精度对于字符串输出同样有效：
++ 宽度为输出的最小字符数，如果必要的话会为已格式化的形式填充空格。
++ 精度为输出的最大字符数，如果必要的话会直接截断。
+
+这样就可以在输出字符串的时候做到左对齐和右对齐，输出类似表格的样式：
+```go
+package main
+
+import "fmt"
+
+type message struct {
+	Title string
+	text  string
+}
+
+func main() {
+	list := []message{
+		{"fmt", "Package fmt implements formatted I/O with functions analogous to C's printf and scanf. The format 'verbs' are derived from C's but are simpler. "},
+		{"bytes", "Package bytes implements functions for the manipulation of byte slices. It is analogous to the facilities of the strings package. "},
+		{"time", "Package time provides functionality for measuring and displaying time. "},
+		{"net/http", "Package http provides HTTP client and server implementations. "},
+	}
+	_ = list
+	for _, msg := range list {
+		fmt.Printf("%9.9s %.99s\n", msg.Title, msg.text)
+	}
+}
+
+/* 输出效果
+PS H:\Go\src\gopl\output> go run main.go
+      fmt Package fmt implements formatted I/O with functions analogous to C's printf and scanf. The format '
+    bytes Package bytes implements functions for the manipulation of byte slices. It is analogous to the faci
+     time Package time provides functionality for measuring and displaying time.
+ net/http Package http provides HTTP client and server implementations.
+PS H:\Go\src\gopl\output>
+*/
+```
+不过对于中文输出就不会那么漂亮了，因为这里填充的空格是半角的空格。

@@ -8,9 +8,10 @@ import (
 	"strings"
 )
 
+// 查询GitHub的issue接口
 func SearchIssues(terms []string) (*IssuesSearchResult, error) {
 	q := url.QueryEscape(strings.Join(terms, " "))
-	resp, err := http.Get(IssuesURL + "?=" + q)
+	resp, err := http.Get(IssuesURL + "?q=" + q)
 	if err != nil {
 		return nil, err
 	}

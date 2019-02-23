@@ -47,3 +47,12 @@ func main() {
 }
 ```
 
+## 读取内容并丢弃（ch1.md）
+使用io.Copy函数读取响应的内容，比如直接复制内容到标准输出，这样就不需要把数据流装到缓冲区：
+```go
+n, err := io.Copy(os.Stdout, resp.Body)
+```
+还可以通过写入 ioutil.Discard 输出流进行丢弃，这样做应该是为了要有一个读取的过程：
+```go
+n, err := io.Copy(ioutil.Discard, resp.Body)
+```
