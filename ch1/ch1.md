@@ -36,7 +36,7 @@ Printf 函数有超过10个各种转义字符，Go 程序员称为 verb。下表
 ```go
 n, err := io.Copy(os.Stdout, resp.Body)
 ```
-还可以通过写入 ioutil.Discard 输出流进行丢弃，这样做应该是为了要有一个读取的过程：
+还可以通过写入 ioutil.Discard 输出流进行丢弃，这样做之后就有了一个读取的过程，只要是为了获取返回的字节数：
 ```go
 n, err := io.Copy(ioutil.Discard, resp.Body)
 ```

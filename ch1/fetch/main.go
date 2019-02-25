@@ -1,3 +1,4 @@
+// 输出从 URL 获取的内容
 package main
 
 import (
