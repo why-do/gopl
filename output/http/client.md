@@ -91,6 +91,11 @@ http://tour.studygolang.com
 https://e.coding.net/?utm_source=studygolang
 ```
 
+这是另一个版本，把 fetch 和 findlinks1 合并到一起了，直接把 get 请求返回的读接口 resp.Body 传递给 findlinks1 读取返回的内容进行处理。最后还对 visit 进行了修改，现在使用递归调用 visit （而不是循环）遍历 n.FirstChild 链表。
+```go
+// exercise5/e1
+```
+
 ## 遍历 HTML 节点树
 下面的程序使用递归遍历所有 HTML 文本中的节点数，并输出树的结构。当递归遇到每个元素时，它都会讲元素标签压入栈，然后输出栈：
 ```go

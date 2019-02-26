@@ -33,6 +33,7 @@ var issueList = template.Must(template.New("issuelist").Parse(`
 `))
 
 func main() {
+	// 建议用这些参数调用执行：go run main.go repo:golang/go is:open json decoder tag
 	result, err := github.SearchIssues(os.Args[1:])
 	if err != nil {
 		log.Fatal(err)
