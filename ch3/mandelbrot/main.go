@@ -32,7 +32,7 @@ func main() {
 		return
 	}
 	defer f.Close()
-	png.Encode(f, img) 
+	png.Encode(f, img)  // 注意：忽略错误
 }
 
 func mandelbrot(z complex128) color.Color {
