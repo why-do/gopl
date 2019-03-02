@@ -89,13 +89,13 @@ if err := WaitForServer(url); err != nil {
 这里还有一个更加方便的方法是通过调用 log.Fatalf 实现上面相同的效果。和所有的日志函数一样，它默认会将时间和日期作为前缀添加到错误消息前：
 ```go
 if err := WaitForServer(url); err != nil {
-    log.Fatalf(os.Stderr, "Site is down: %v\n", err)
+    log.Fatalf("Site is down: %v\n", err)
 }
 ```
 这种带日期时间的默认格式有助于长期运行的服务器，而对于交互式的命令行工具则意义不大。  
 还可以自定义命令的名称作为 log 包的前缀，并且将日期和时间略去：
 ```go
-log.SetPrefix("waid: ")
+log.SetPrefix("wait: ")
 log.SetFlags(0)
 ```
 
