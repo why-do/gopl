@@ -143,9 +143,40 @@ PS H:\Go\src\gopl\ch5\outline2> go run main.go http://baidu.com
 PS H:\Go\src\gopl\ch5\outline2>
 ```
 
-# 5.3 多返回值
+# 5.6 匿名函数
+网络爬虫的遍历。
 
-## 裸返回
-一个函数如果有命名的返回值，可以省略 return 语句的操作数，这称为**裸返回**。  
-在一个函数中如果存在许多返回语句且有多个返回结果，裸返回可以消除重复代码，但是并不能使代码更加易于理解。比如，对于这种方式，在第一眼看来，不能直观地看出返回的值具体是什么。如果之前一直没有使用过返回值的变量名，返回变量的零值，如果赋过值了，则返回新的值，这就有可能会看漏。鉴于这个原因，应该保守使用裸返回。  
+## 解析链接
+在之前遍历节点树的基础上，这次来获取页面中所有的链接。将之前的 visit 函数替换为匿名函数（闭包），现在可以直接在匿名函数里把找到的链接添加到 links 切片中，这样的改变之后，逻辑上更加清晰也更好理解了。因为 Extract 函数只需要前序调用，这里就把 post 部分的参数值传nil。这里做成一个包，后面要继续使用：
+```go
+// ch5/links
+```
+**解析URL成为绝对路径**  
+这里不直接把href原封不动地添加到切片中，而将它解析成基于当前文档的相对路径 resp.Request.URL。结果的链接是绝对路径的形式，这样就可以直接用 http.Get 继续调用。  
 
+## 图的遍历
+网页爬虫的核心是解决图的遍历，使用递归的方法可以实现深度优先遍历。对于网络爬虫，需要广度优先遍历。*另外还可以进行并发遍历，这里不讲这个。*  
+下面的示例函数展示了广度优先遍历的精髓。调用者提供一个初始列表 worklist，它包含要访问的项和一个函数变量 f 用来处理每一个项。每一个项有字符串来识别。函数 f 将返回一个新的列表，其中包含需要新添加到 worklist 中的项。breadthFirst 函数将在所有节点项都被访问后返回。它需要维护一个字符串集合来保证每个节点只访问一次。  
+在爬虫里，每一项节点都是 URL。这里需要提供一个 crawl 函数传给 breadthFirst 函数最为f的值，用来输出URL，然后解析链接并返回：
+```go
+// ch5/findlinks3
+```
+
+## 遍历输出链接
+接下来就是找一个网页来测试，下面是一些输出的链接：
+```
+PS H:\Go\src\gopl\ch5\findlinks3> go run main.go http://lab.scrapyd.cn/
+http://lab.scrapyd.cn/
+http://lab.scrapyd.cn/archives/57.html
+http://lab.scrapyd.cn/tag/%E8%89%BA%E6%9C%AF/
+http://lab.scrapyd.cn/tag/%E5%90%8D%E7%94%BB/
+http://lab.scrapyd.cn/archives/55.html
+http://lab.scrapyd.cn/archives/29.html
+http://lab.scrapyd.cn/tag/%E6%9C%A8%E5%BF%83/
+http://lab.scrapyd.cn/archives/28.html
+http://lab.scrapyd.cn/tag/%E6%B3%B0%E6%88%88%E5%B0%94/
+http://lab.scrapyd.cn/tag/%E7%94%9F%E6%B4%BB/
+http://lab.scrapyd.cn/archives/27.html
+......
+```
+整个过程将在所有可达的网页被访问到或者内存耗尽时结束。
