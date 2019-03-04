@@ -24,7 +24,11 @@ var prereqs = map[string][]string{
 }
 
 func main() {
-	for i, course := range topoSort(prereqs) {
+	order, ok := topoSort(prereqs)
+	if !ok {
+		fmt.Printf("发现成环: \n")
+	}
+	for i, course := range order {
 		fmt.Printf("%d:\t%s\n", i+1, course)
 	}
 }
@@ -32,19 +36,33 @@ func main() {
 // 概念：有向图、拓扑排序
 // 如果是有向无环图，就可以输出序列
 // 如果图有环，则要发现环
-// 1、选一个没有前驱的顶点，并输出
-// 2、删除此顶点。
-// 重复这两边直到图空，或者图不空但找不到无前驱的顶点
-func topoSort(m map[string][]string) []string {
+func topoSort(m map[string][]string) ([]string, bool) {
 	// 闭包的部分
 	var order []string
 	seen := make(map[string]bool)
 	var visitAll func(items []string)
+	var checkLoop, loopOrder []string
+	var foundLoop bool
 	visitAll = func(items []string) {
+		if foundLoop {
+			return
+		}
 		for _, item := range items {
+			for _, i := range checkLoop {
+				if i == item {
+					for _, j := range checkLoop {
+						loopOrder = append(loopOrder, j)
+					}
+					loopOrder = append(loopOrder, item)
+					foundLoop = true
+					return
+				}
+			}
 			if !seen[item] {
 				seen[item] = true
+				checkLoop = append(checkLoop, item)
 				visitAll(m[item])
+				checkLoop = checkLoop[:len(checkLoop)-1]
 				order = append(order, item)
 			}
 		}
@@ -56,5 +74,8 @@ func topoSort(m map[string][]string) []string {
 	}
 	sort.Strings(keys)
 	visitAll(keys)
-	return order
+	if foundLoop {
+		return loopOrder, !foundLoop
+	}
+	return order, !foundLoop
 }
