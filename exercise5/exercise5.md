@@ -19,3 +19,13 @@
 + 练习5.12：5.5节（/ch5/outline2）的 startElement 和 endElement 函数共享一个全局变量 depth。把它们变为匿名函数以共享 outline 函数的一个局部变量。
 + 练习5.13：修改 crawl 函数保存找到的页面，根据需要创建目录。不要保存不同域名下的页面。比如，如果本来的页面来自 golang.org，那么就把它们保存下来但是不要保存 vimeo.com 下的页面。
 + 练习5.14：使用广度优先遍历搜索一个不同的拓扑结构，比如，你可以借鉴拓扑排序的例子（有向图）里的课程依赖关系，计算机文件系统的分层结构（树形结构），或者从当前城市的官方网站上下载公共汽车或者地铁线路图（无向图）。
+
+# 5.7 变长函数
++ 练习5.15：模仿 sum 写两个变长函数 max 和 min，当不带任何参数调用这些函数时，应该怎么应对？编写类似函数的变种，要求至少需要一个参数。
++ 练习5.16：写一个变长版本的 strings.Join 函数。
++ 练习5.17：写一个变长函数 ElementsByTagname，已知一个 HTML 节点数和零个或多个名字，返回所有符合给出名字的元素。下面有两个示例调用：
+```go
+func ElementsByTagname(doc *html.Node, name ...string) []*html.Node
+images := ElementsByTagname(doc, "img")
+headings := ElementsByTagname(doc, "hi", "h2", "h3", "h4")
+```

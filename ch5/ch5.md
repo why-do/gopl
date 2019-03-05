@@ -53,3 +53,42 @@ PS H:\Go\src\gopl\ch5\toposort> go run main.go
 13:     programming languages
 PS H:\Go\src\gopl\ch5\toposort>
 ```
+
+# 警告：捕获迭代变量
+首先，看下面的代码：
+```go
+package main
+
+import "fmt"
+
+func main() {
+	var shows []func()
+	for _, v := range []int{1, 2, 3, 4, 5} {
+		shows = append(shows, func() { fmt.Println(v) })
+	}
+
+	for _, f := range shows {
+		f()
+	}
+}
+```
+这里的期望是依次打印每个数。但实际打印出来的全部都是5。  
+在for循环引进的一个块作用域内声明了变量v，然后到了循环里使用的这类变量共享相同的变量，即一个可访问的存储位置，而不是固定的值。v的值在不断地迭代中更新，因此当之后调用打印的时候，v变量已经被每一次的for循环更新多次。所以打印出来的是最后一次迭代时的值。  
+这里可以通过引入一个内部变量来解决这个问题，可以换个名字，也可以使用一样的变量名：
+```go
+func main() {
+	var shows []func()
+	for _, v := range []int{1, 2, 3, 4, 5} {
+		v := v // 这句是关键
+		shows = append(shows, func() { fmt.Println(v) })
+	}
+
+	for _, f := range shows {
+		f()
+	}
+}
+```
+看起来奇怪，但却是一个关键性的声明。for循环内也可以随意定义一个不一样的变量名，这样看着更好理解一些。  
+也可以用匿名函数（闭包）来理解，这里确实是一个闭包，匿名函数内引用了外部变量。第一个示例中，变量v会在for循环的每次迭戈中更新。第二个示例，匿名函数引用的变量v是在for循环内部声明的，不会随着迭代而更新，并且在for循环内部也没有变化过。  
+这样的隐患不仅仅存在于使用range的for循环里。在 `for i := 0; i < 10; i++ {}` 这样的循环里作用域也是同样的，这里的变量i也是会有同样的问题，需要避免。  
+另外在go语句和derfer语句的使用当中，迭代变量捕获的问题是最频繁的，这是因为这两个逻辑都会推迟函数的执行时机，直到循环结束。但是这个问题并不是有go或者defer语句造成的。  
