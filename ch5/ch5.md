@@ -92,3 +92,32 @@ func main() {
 也可以用匿名函数（闭包）来理解，这里确实是一个闭包，匿名函数内引用了外部变量。第一个示例中，变量v会在for循环的每次迭戈中更新。第二个示例，匿名函数引用的变量v是在for循环内部声明的，不会随着迭代而更新，并且在for循环内部也没有变化过。  
 这样的隐患不仅仅存在于使用range的for循环里。在 `for i := 0; i < 10; i++ {}` 这样的循环里作用域也是同样的，这里的变量i也是会有同样的问题，需要避免。  
 另外在go语句和derfer语句的使用当中，迭代变量捕获的问题是最频繁的，这是因为这两个逻辑都会推迟函数的执行时机，直到循环结束。但是这个问题并不是有go或者defer语句造成的。  
+
+# 5.8 延迟函数调用
+defer 语句也可以用来调试一个复杂的函数，即在函数的“入口”和“出口”处设置调试行为。下面的 bigSlowOperation 函数在开头调用 trace 函数，在函数刚进入的时候执行输出，然后返回一个函数变量，当其被调用的时候执行退出函数的操作。以这种方式推迟返回函数的调用，就可以使一个语句在函数入口和所有出口添加处理，甚至可以传递一些有用的值，比如每个操作的开始时间：
+```go
+package main
+
+import (
+	"log"
+	"time"
+)
+
+func bigSlowOperation() {
+	defer trace("bigSlowOperation")()  // 这个小括号很重要
+	// ...这里假设有一些操作...
+	time.Sleep(3 * time.Second) // 模拟慢操作
+}
+
+func trace(msg string) func() {
+	start := time.Now()
+	log.Printf("enter %s", msg)
+	return func() { log.Printf("exit %s (%s)", msg, time.Since(start)) }
+}
+
+func main() {
+	bigSlowOperation()
+}
+```
+通常的defer语句提供一个函数，会在函数退出时再调用。  
+上面的defer语句，最后面有两个小括号。trace函数调用后会返回一个匿名函数，加上后面的小括号才是延迟调用执行的部分。而trace函数本身则会在当前位置就执行，并且返回匿名函数给defer语句。在trace函数获取返回值的过程中，也就是trace函数里，会先执行两行语句，获取start变量的值以及输出一行信息，这个是在函数开头就执行的。最后函数返回的匿名函数是提供给defer语句在退出的时候进行延迟调用的。  

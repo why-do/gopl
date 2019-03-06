@@ -180,3 +180,11 @@ http://lab.scrapyd.cn/archives/27.html
 ......
 ```
 整个过程将在所有可达的网页被访问到或者内存耗尽时结束。
+
+# 5.8 延迟函数调用
+
+## 获取页面的title
+首先判断Get请求返回的是一个HTML页面，通过返回的响应头的Content-Type来判断。一般是：Content-Type: text/html; charset=utf-8。然后才是解析HTML的标签获取title标签的内容：
+```go
+// ch5/title2
+```
