@@ -188,3 +188,25 @@ http://lab.scrapyd.cn/archives/27.html
 ```go
 // ch5/title2
 ```
+
+## 将页面保存到文件
+使用Get请求一个页面，然后保存到本地的文件中。使用 path.Base 函数获得 URL 路径最后一个组成部分作为文件名：
+```go
+// ch5/fetch
+```
+示例中的 fetch 函数中，会 os.Create 打开一个文件。但是如果使用延迟调用 f.Close 去关闭一个本地文件就会有些问题，因为 os.Create 打开了一个文件对其进行写入、创建。在许多文件系统中尤其是NFS，写错误往往不是立即返回而是推迟到文件关闭的时候。如果无法检查关闭操作的结果，就会导致一系列的数据丢失。然后，如果 io.Copy 和 f.Close 同时失败，我们更倾向于报告 io.Copy 的错误，因为它发生在前，更有可能记录失败的原因。示例中的最后一个错误处理就是这样的处理逻辑。  
+一般都是利用 defer 来处理关闭的操作，上面的逻辑写在 defer 中应该也只需要把 if 的代码块封装到匿名函数中就可以了：
+```go
+	f, err := os.Create(local)
+	if err != nil {
+		return "", 0, err
+	}
+	defer func() {
+		if closeErr := f.Close(); err == nil {
+			err = closeErr
+		}
+	}()
+	n, err = io.Copy(f, resp.Body)
+	return local, n, err
+```
+这里的做法就是在 defer 中改变返回给调用者的结果。

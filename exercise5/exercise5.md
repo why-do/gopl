@@ -29,3 +29,6 @@ func ElementsByTagname(doc *html.Node, name ...string) []*html.Node
 images := ElementsByTagname(doc, "img")
 headings := ElementsByTagname(doc, "hi", "h2", "h3", "h4")
 ```
+
+# 5.8 延迟函数调用
++ 练习5.18：不改变原本的行为，重写 fetch 函数以使用 defer 语句关闭打开的可写的文件。
