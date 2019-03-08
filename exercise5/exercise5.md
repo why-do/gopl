@@ -32,3 +32,6 @@ headings := ElementsByTagname(doc, "hi", "h2", "h3", "h4")
 
 # 5.8 延迟函数调用
 + 练习5.18：不改变原本的行为，重写 fetch 函数以使用 defer 语句关闭打开的可写的文件。
+
+# 5.10 恢复
++ 练习5.19：使用 panic 和 recover 写一个函数，它没有 return 语句，但是能够返回一个非零的值。
