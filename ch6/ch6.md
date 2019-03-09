@@ -1,3 +1,28 @@
+# 6.1 方法声明
+写一个简单的方法：
+```go
+type Point struct{X, Y float64}
+
+// 普通的函数
+func Distance(p, q Point) float64 {
+	return math.Hypot(q.X-p.X, q.Y-p.Y)
+}
+
+// 同样的作用，用方法实现
+func (p Point) Distance(q Point) float64 {
+	return math.Hypot(q.X-p.X, q.Y-p.Y)
+}
+```
+**接收者**：附加的参数 p 称为方法的接收者。  
+调用方法的时候，接收者在方法名的前面。这样就和声明保持一致：
+```go
+p := Point{1, 2}
+q := Point{4, 6}
+fmt.Println(Distance(p, q)) // 函数调用
+fmt.Println(p.Distance(q))  // 方法调用
+```
+**选择子**：表达是 p.Distance 称作选择子（selector），因为它为接收者 p 选择合适的 Distance 方法。
+
 # 6.2 指针接收者的方法
 对于函数，它会复制每一只实参变量。如果函数需要更新一个变量，或者是因为实参太大而需要避免复制整个实参，就需要使用指针来传递变量的地址。  
 对于方法的接受者，也可以将方法绑定到指针类型。习惯上遵循如果一个类型的任何一个方法使用指针接收者，那么所有该类型的方法都应该使用指针接收者，即使有些方法不一定需要。  
@@ -6,3 +31,38 @@
 type p *int
 func (p) f() { /*...*/ } // 编译错误：非法的接收者类型
 ```
+
+# 6.4 方法变量与表达式
+
+## 方法变量（method value）
+通常是在相同的表达式里使用和调用方法，但是把两个操作分开也是可以的。选择子 p.Distance 可以赋予一个**方法变量**，它是一个函数，把方法(Point.Distance)绑定到一个接收者 p 上。函数只需要提供实参而不需要提供接收者就能够调用：
+```go
+p := Point{1, 2}
+q := Point{4, 6}
+distanceFromP := p.Distance // 方法变量
+fmt.Println(distanceFromP(q))
+```
+这里 p.Distance 是选择子，把它赋值给变量 distanceFromP，这个变量就是方法变量，并且这个变量是一个函数。  
+如果包内的 API 调用一个函数值，并且使用者期望这个函数的行为是调用一个特定接收者的方法，方法变量就非常有用。使用方法变量还可以是代码更加简洁：
+```go
+type Rocket struct { /* ... */ }
+func (r *Rocket) Launch() { /* ... */ }
+
+r := new(Rocket)
+time.AfterFunc(10 * time.Second, func() { r.Launch() }) // 如果没有方法变量，那么要把执行一个方法包在一个函数里，等到函数被调用后执行
+time.AfterFunc(10 * time.Second, r.Launch)  // 使用方法变量，这里 r.Launch 就是一个函数，只是没有赋值给某个变量，没有函数名
+```
+函数 time.AfterFunc 的作用是在指定的延迟后调用一个函数。上面说了，方法变量也是函数。
+
+## 方法表达式（method expression）
+调用方法的时候必须提供接收者，并且按照选择子的语法进行调用。  
+**方法表达式**，写成 T.f 或者 (\*T.f)。  
+其中 T 是类型，是一种函数变量，把原来方法的接收者替换成函数的第一个形参，因此它可以像平常的函数一样调用：
+```go
+p := Point{1, 2}
+q := Point{4, 6}
+distance :=  Point.Distance  // 方法表达式
+fmt.Println(distance(p, q))
+fmt.Printf("%T\n", distance) // "func(Point, Point) float64"
+```
+如果需要一个值来代表多个方法中的一个，而方法都属于同一个类型，方法表达式可以实现让这个值所对应的方法来处理不同的接收者。*就是可以把一个方法变成一个函数，函数的变量会增加一个，第一个变量就是原来方法中的接收者。其实各个参数的顺序还是一样的，原本第一个参数在 func 前，现在移动到了 func 后面。 p.Distance(q) 变成了 distance(p, q)。*  
