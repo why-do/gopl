@@ -77,6 +77,39 @@ func main() {
 
 # 4.3 map
 
+## 引用类型
+6.2节的结尾提到的关于引用类型的问题。  
+因为map类型是间接的指向它的 key/value 对，所以函数或方法对引用本身做的任何改变，比如设置值为 nil 或者使它指向一个不同的 map，都不会在调用者身上产生作用：
+```go
+package main
+
+import "fmt"
+
+type map1 map[string]string
+
+func change(m map1) {
+	fmt.Println("change:", m) // change: map[k1:v1]
+	m = map1{"k1": "v2"} // 将m指向一个新的map，但是并不会改变main中m1的值
+	fmt.Println("change:", m) // change: map[k1:v2]
+}
+
+func main() {
+	m1 := map1{"k1": "v1"}
+	fmt.Println("main:", m1) // main: map[k1:v1]
+	change(m1) // m1 的值不会改变
+	fmt.Println("main", m1) // main map[k1:v1]
+}
+```
+main函数中创建了m1，然后把m1传递给change函数，引用类型传的是存储了m1的内存地址的副本。在change中修改m的值，指向了一个新创建的map，此时m就指向了新创建的map的内存地址。回到main函数中m1指向的内存地址并没有改变，而该地址对应的map的内容也没有改变。  
+下面这个函数，main函数中原来的map是会改变的。main函数中map的指向的地址没有变，但是地址对应的数据发生了变化：
+```go
+func changeKeyValue(m map1, k, v string) {
+	fmt.Println("change:", m)
+	m[k] = v
+	fmt.Println("change:", m)
+}
+```
+
 ## 集合
 Go 没有提供集合类型，但是利用key唯一的特点，可以用map来实现这个功能。比如说字符串的集合：
 ```go
