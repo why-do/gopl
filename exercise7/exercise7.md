@@ -5,3 +5,10 @@
 func CountingWriter(w io.Writer) (io.Writer, *int64)
 ```
 + 练习7.3：为 gopl.io/ch4/treesort 中的 *tree 类型（见4.4节）写一个String方法，用于展示其中的值序列。
+
+# 7.2 接口类型
++ 练习7.4：strings.NewReader 函数输入一个字符串，返回一个从字符串读取数据且满足 io.Reader 接口（也满足其他接口）的值。请自己实现该函数，并且通过它来让 HTML 分析器（参考5.2节）支持以字符串作为输入。
++ 练习7.5：io 包中的 LimitReader 函数接受 io.Reader r和字节数n，返回一个 Reader，该返回值从 r 读取数据，但在读取 n 字节后报告文件结束。请实现该函数。
+```go
+func LimitReader(r io.Reader, n int64) io.Reader
+```
