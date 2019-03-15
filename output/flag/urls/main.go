@@ -30,7 +30,6 @@ func Urls(name string, value []string, usage string) *[]string {
 	return p
 }
 
-
 func main() {
 	s := Urls("url", []string{"baidu.com"}, "域名")
 	flag.Parse()

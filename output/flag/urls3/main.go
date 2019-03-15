@@ -17,10 +17,13 @@ func (v *urls) String() string {
 	return strings.Join(r, ", ")
 }
 
-var newUrls urls
+var isNew bool
 func (v *urls) Set(s string) error {
-	newUrls = append(newUrls, s)
-	*v = newUrls
+	if !isNew {
+		*v = nil
+		isNew = true
+	}
+	*v = append(*v, s)
 	return nil
 }
 
