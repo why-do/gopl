@@ -12,3 +12,7 @@ func CountingWriter(w io.Writer) (io.Writer, *int64)
 ```go
 func LimitReader(r io.Reader, n int64) io.Reader
 ```
+
+# 7.4 使用 flag.Value 来解析参数
++ 练习7.6：在 tempflag 中支持热力学温度。
++ 练习7.7：请解释为什么默认值 20。0 没写 °C，而帮助消息中却包含 °C。
