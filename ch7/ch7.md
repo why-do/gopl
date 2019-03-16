@@ -13,3 +13,56 @@ io.Writer 是一个广泛使用的接口，它负责所有可以写入字节的�
 + 打包器（archiver）
 + 散列器（hasher）
 
+# 7.5 接口值
+**接口值**，就是一个接口类型的值。分两个部分：
++ **动态类型** ： 该接口的具体类型
++ **动态值** ： 该具体类型的一个值
+
+```go
+var w io.Writer  // 声明接口，动态类型和动态值都是nil
+w = os.Stdout  // 有动态类型，也有动态值
+w = io.Writer(os.Stdout)  // 和上面这句等价，把一个具体类型显式转换为接口类型
+w = new(bytes.Buffer)  // 有动态类型，也有动态值
+w = nil  // 把动态类型和动态值都设置为nil，恢复到声明时的状态
+```
+
+## 比较接口值
+接口值可以用 == 和 != 来比较。动态类型一致，然后动态值相等（使用动态类型的 == 来比较），那么接口值相等。接口值都是nil也是相等的。  
+**可以作为map的key**，也可以作为switch语句的操作数，因为可以比较。  
+动态值可能是不可比较的类型，比如切片。对这样的接口进行比较，就会Panic。把这样的接口用作map的key或者switch语句的操作数时也同样会Panic。所以，仅在能确认接口值包含的动态值可以比较时，才比较接口值。  
+fmt 包的 %T 打印出来的就是动态类型。在内部实现中，fmt 用反射来拿到接口动态类型的名字。
+
+## 注意：含有空指针的非空接口
+空的接口值（动态类型和动态值都为空）和仅仅动态值为nil的接口值是不一样的。
+```go
+const debug = true
+
+func main() {
+	var buf *bytes.Buffer
+	if debug {
+		buf = new(bytes.Buffer)
+	}
+	f(buf)
+	if debug {
+		// ...使用 buf...
+	}
+}
+
+// 如果 out 不是 nil，那么会向其写入输出的数据
+func f(out io.Writer) {
+	// ...其他代码...
+	if out != nil {
+		out.Write([]byte("done\n"))
+	}
+}
+```
+这里，把一个类型为 \*bytes.Buffer 的空指针赋给了 out 参数，此时 out 的动态值为空。但它的动态类型是 \*bytes.Buffer。就是说 out 是一个包含空指针的非空接口，所以这里的检查 `out != nil` 是 true，防御不了这种情况。  
+对于某些类型，比如 \*os.File，空接收值是合法的。但是对于这里的 \*buyes.Buffer，要求接收者不能为空，于是运行时会Panic。  
+这里的解决方案是，把 main 函数中的 buf 类型修改为 io.Writer，从而避免在最开始就把一个功能不完整的值赋给一个接口：
+```go
+var buf io.Writer
+if debug {
+	buf = new(bytes.Buffer)
+}
+f(buf)
+```
