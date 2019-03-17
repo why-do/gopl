@@ -16,3 +16,8 @@ func LimitReader(r io.Reader, n int64) io.Reader
 # 7.4 使用 flag.Value 来解析参数
 + 练习7.6：在 tempflag 中支持热力学温度。
 + 练习7.7：请解释为什么默认值 20。0 没写 °C，而帮助消息中却包含 °C。
+
+# 7.6 使用 sort.Interface 来排序
++ 练习7.8：很多图形界面提供了一个表格控件，它支持有状态的多层排序：先按照最近单击的列来排序，接着是上一次使用单击的列，依次类推。请定义 sort.Interface 接口实现来满足如上需求。试比较这个方法与多次使用 sort.Stable 排序的异同。
++ 练习7.9：利用 html/template 包（见4.6节）来替换 printTracks 函数，使用 HTML 表格来显示音乐列表。结合上一个练习，来实现通过单击列头来发送 HTTP 请求，进而对表格排序。
++ 练习7.10：sort.Interface 也可以用于其他用途。试写一个函数 `IsPalindrome(s sort.Interface)bool` 来判断一个序列是否是回文，即序列反转后是否保持不变。可以假定对于下标分别为 i、j 的元素，如果 `!s.Less(i,j) && !s.Less(j,i)`，那么两个元素相等。 
