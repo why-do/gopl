@@ -166,11 +166,143 @@ fmt.Println(sort.IsSorted(sort.Reverse(sort.IntSlice(values)))) // "true"
 ```
 
 # 稳定的排序
-sort.Sort 是不稳定的排序。前后优化的例子，先对Title进行比较，然后是Year，再是Length，实现了多维度的排序。在第一关键字相等的情况下，再通过第二关键字进行比较。整个过程只进行了一次序列的交换，这样看不出问题。  
-如果对多个关键字进行排序，但是不是像上面这样通过一次比较交换完成，而是先对一个关键字进行排序，得到一个已经有序的序列。然后再在这个序列的基础上，再进行一次对另一个关键字的排序，稳定的排序和不稳定的排序的结果就会有差别。比如排序第一关键字是姓名，第二关键字是年龄。那么先做一个年龄的排序（稳定不稳定无所谓），然后再在原来的基础上做一次姓名的排序（必须稳定），才能得到正确的结果。下面通过具体事例来说明。
+sort.Sort 是不稳定的排序。在“优化”章节里的例子，先对Title进行比较，然后是Year，再是Length，实现了多个字段的排序。在第一关键字相等的情况下，再通过第二关键字进行比较。整个过程只进行了一次序列的交换，这样看不出问题。  
+如果对多个关键字进行排序，但是不是像上面这样通过一次比较交换完成，而是先对一个关键字进行排序，得到一个已经有序的序列。然后再在这个序列的基础上，再进行一次对另一个关键字的排序，稳定的排序和不稳定的排序的结果就会有差别。比如排序第一关键字是年龄，第二关键字是姓名。那么先做一个姓名的排序（稳定不稳定无所谓），然后再在原来的基础上做一次年龄的排序（必须稳定），才能得到正确的结果。下面通过具体事例来说明，稳定排序和不稳定排序的差别。
 
 ## 准备数据
+数据结构、打印的函数、具体数据如下代码实现：
+```go
+type Student struct {
+	name string
+	age  int
+}
+
+var students []*Student
+
+func printStudents(students []*Student) {
+	const format = "%v\t%v\t\n"
+	tw := new(tabwriter.Writer).Init(os.Stdout, 0, 8, 2, ' ', 0)
+	fmt.Fprintf(tw, format, "name", "age")
+	fmt.Fprintf(tw, format, "----", "---")
+	for _, s := range students {
+		fmt.Fprintf(tw, format, s.name, s.age)
+	}
+	tw.Flush()
+}
+
+func init() {
+	students = []*Student{
+		&Student{"Adam", 20},
+		&Student{"Bob", 18},
+		&Student{"Clark", 19},
+		&Student{"Daisy", 18},
+		&Student{"Eva", 20},
+		&Student{"Frank", 20},
+		&Student{"Gideon", 19},
+	}
+}
+```
+
+## 接口实现
+这里使用通用的 less 方法：
+```go
+type studentSort struct {
+	s    []*Student
+	less func(x, y *Student) bool
+}
+
+func (x studentSort) Len() int           { return len(x.s) }
+func (x studentSort) Less(i, j int) bool { return x.less(x.s[i], x.s[j]) }
+func (x studentSort) Swap(i, j int)      { x.s[i], x.s[j] = x.s[j], x.s[i] }
+```
 
 ## 不稳定的排序
+先对 name 进行排序，然后再原来序列的基础上对 age 进行排序：
+```go
+func main() {
+	sort.Sort(studentSort{students, func(x, y *Student) bool {
+		if x.name != y.name {
+			return x.name < y.name
+		}
+		return false
+	}})
+
+	sort.Sort(studentSort{students, func(x, y *Student) bool {
+		if x.age != y.age {
+			return x.age < y.age
+		}
+		return false
+	}})
+	printStudents(students)
+}
+```
+最后打印的结果是这样的：
+```
+PS H:\Go\src\gopl\output\sort\stable> go run main.go
+name    age
+----    ---
+Bob     18
+Daisy   18
+Gideon  19
+Clark   19
+Eva     20
+Frank   20
+Adam    20
+PS H:\Go\src\gopl\output\sort\stable>
+```
+在这个结果里年龄相同的数据，并没有按字母顺序排序，虽然之前已经按字母顺序进行了排序，不过在第二次排序的时候，会把之前的顺序打乱，这就是不稳定的排序。
 
 ## 稳定的排序
+这里来看看稳定的排序。这里只要把 sort.Sort 函数替换成 sort.Stable 即可：
+```go
+func main() {
+	sort.Sort(studentSort{students, func(x, y *Student) bool {
+		if x.name != y.name {
+			return x.name < y.name
+		}
+		return false
+	}})
+
+	sort.Stable(studentSort{students, func(x, y *Student) bool {
+		if x.age != y.age {
+			return x.age < y.age
+		}
+		return false
+	}})
+	printStudents(students)
+}
+```
+这里只替换了第二次排序的函数。第一次排序的时候假设序列本来就是乱的，所以这里并没有需要稳定的必要。  
+这次再来看下结果：
+```
+PS H:\Go\src\gopl\output\sort\stable> go run main.go
+name    age
+----    ---
+Bob     18
+Daisy   18
+Clark   19
+Gideon  19
+Adam    20
+Eva     20
+Frank   20
+PS H:\Go\src\gopl\output\sort\stable>
+```
+这次的结果是期望的样子了，按年龄排序，如果年龄相同，再按字母顺序排序。
+
+## 小结
+sort.Stable 虽然能保证排序的稳定性，但是牺牲了效率。如果需要保证序列的稳定性，那么就要用 sort.Stable 函数来代替 sort.Sort。  
+但是如果仅仅只是要对多个字段进行排序，也可以直接在比较的时候就完成全部字段的比较，仅做一次序列的调换（就是排序）。就向上面“优化”章节里的 customSort 实现的那样，下面是这里例子里的实现：
+```go
+func main() {
+	sort.Sort(studentSort{students, func(x, y *Student) bool {
+		if x.age != y.age {
+			return x.age < y.age
+		}
+		if x.name != y.name {
+			return x.name < y.name
+		}
+		return false
+	}})
+	printStudents(students)
+}
+```
