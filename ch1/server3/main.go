@@ -1,17 +1,13 @@
-// 迷你回声和计数器服务器
 package main
 
 import (
 	"fmt"
 	"log"
 	"net/http"
-	"sync"
 )
 
-var mu sync.Mutex
-var count int
-
 func main() {
+	fmt.Println("http://localhost:8000/?k1=v1&k2=v2&k3=1&k3=2&k3=3")
 	http.HandleFunc("/", handler)
 	log.Fatal(http.ListenAndServe("localhost:8000", nil))
 }
@@ -31,4 +27,3 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Form[%q] = %q\n", k, v)
 	}
 }
-

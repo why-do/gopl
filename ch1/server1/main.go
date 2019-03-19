@@ -8,6 +8,7 @@ import (
 )
 
 func main() {
+	fmt.Println("http://localhost:8000/hello")
 	http.HandleFunc("/", handler) // 回声请求调用处理程序
 	log.Fatal(http.ListenAndServe("localhost:8000", nil))
 }

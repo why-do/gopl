@@ -21,3 +21,7 @@ func LimitReader(r io.Reader, n int64) io.Reader
 + 练习7.8：很多图形界面提供了一个表格控件，它支持有状态的多层排序：先按照最近单击的列来排序，接着是上一次使用单击的列，依次类推。请定义 sort.Interface 接口实现来满足如上需求。试比较这个方法与多次使用 sort.Stable 排序的异同。
 + 练习7.9：利用 html/template 包（见4.6节）来替换 printTracks 函数，使用 HTML 表格来显示音乐列表。结合上一个练习，来实现通过单击列头来发送 HTTP 请求，进而对表格排序。
 + 练习7.10：sort.Interface 也可以用于其他用途。试写一个函数 `IsPalindrome(s sort.Interface)bool` 来判断一个序列是否是回文，即序列反转后是否保持不变。可以假定对于下标分别为 i、j 的元素，如果 `!s.Less(i,j) && !s.Less(j,i)`，那么两个元素相等。 
+
+# 7.7 http.Handler 接口
++ 练习7.11：增加额外的处理程序，来支持创建、读取、更新和删除数据库条目。比如，`/update?item=socke&price=6`这样的请求将更新仓库中物品的价格，如果商品不存在或者价格无效就返回错误。（注意：这次修改会引入并发变量修改。）
++ 练习7.12：修改 \/list 的处理程序，改为输出 HTML 表格，而不是纯文本。可以考虑使用 html\/template包（参考4.6节）。

@@ -12,7 +12,9 @@ var mu sync.Mutex
 var count int
 
 func main() {
+	fmt.Println("http://localhost:8000/hello")
 	http.HandleFunc("/", handler)
+	fmt.Println("http://localhost:8000/count")
 	http.HandleFunc("/count", counter)
 	log.Fatal(http.ListenAndServe("localhost:8000", nil))
 }
