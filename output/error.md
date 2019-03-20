@@ -81,15 +81,15 @@ func main() {
 接着看上面的代码，如果多次重试后依然不能成功，调用者能够输出错误然后优雅地停止程序，但一般这样的处理应该留给主程序部分：
 ```go
 if err := WaitForServer(url); err != nil {
-    fmt.Fprintf(os.Stderr, "Site is down: %v\n", err)
-    os.Exit(1)
+	fmt.Fprintf(os.Stderr, "Site is down: %v\n", err)
+	os.Exit(1)
 }
 ```
 通常，如果是库函数，应该将错误传递给调用者，除非这个错误表示一个内部的一致性错误，这意味着库内部存在 bug。  
 这里还有一个更加方便的方法是通过调用 log.Fatalf 实现上面相同的效果。和所有的日志函数一样，它默认会将时间和日期作为前缀添加到错误消息前：
 ```go
 if err := WaitForServer(url); err != nil {
-    log.Fatalf("Site is down: %v\n", err)
+	log.Fatalf("Site is down: %v\n", err)
 }
 ```
 这种带日期时间的默认格式有助于长期运行的服务器，而对于交互式的命令行工具则意义不大。  
@@ -103,14 +103,14 @@ log.SetFlags(0)
 在一些错误情况下，只记录下错误信息然后程序继续运行。同样地，可以选择使用 log 包来增加日志的常用前缀：
 ```go
 if err := Ping(): err != nil {
-    log.Printf("Ping failed: %v; networking disabled", err)
+	log.Printf("Ping failed: %v; networking disabled", err)
 }
 ```
 所有 log 函数都会为缺少换行符的日志补充一个换行符。  
 或者是，直接输出到标准错误流：
 ```go
 if err := Ping(): err != nil {
-    fmt.Fprintf(os.Stderr, "Ping failed: %v; networking disabled\n", err)
+	fmt.Fprintf(os.Stderr, "Ping failed: %v; networking disabled\n", err)
 }
 ```
 没有用 log 函数，所以没有时间日期，当然也不需要。上面说了，对于交互式的命令工具意义不大。  
@@ -120,10 +120,55 @@ if err := Ping(): err != nil {
 ```go
 dir, err := ioutil.TempDir("", "scratch")
 if err != nil {
-    return fmt.Errorf("failed to create temp dir: %v", err)
+	return fmt.Errorf("failed to create temp dir: %v", err)
 }
 // 使用临时的目录
 os.RemoveAll(dir)  // 忽略错误，$TMPDIR 会被周期性删除
 ```
 调用 os.RemoveAll 可能会失败，但程序忽略了这个错误，原因是操作系统会周期性地清理临时目录。在这个例子中，有意的抛弃了错误，但程序的逻辑看上去就和忘记去处理一样了。要习惯考虑到每一个函数调用可能发生的出错情况，当有意忽略一个错误的时候，要清楚地注释一下你的意图。  
 
+# 7.8 error 接口
+之前已经使用过 error 类型了，实际上它是一个接口类型，包含一个返回错误消息的方法：
+```go
+type error interface {
+	Error() string
+}
+```
+
+## errors 包
+构造 error 最简单的方法是调用 errors.New，它会返回一个包含指定错误消息的新 error 实例。  
+完整的 errors 包其实只有如下的4行代码：
+```go
+package errors
+
+func New(text string) error { return &errorString{text} }
+
+type errorString struct { s string }
+
+func (e *errorString) Error() string { return e.s }
+```
+底层的 errorString 类型是一个结构体，而不是像其他包里那样定义字符串的别名类型。这主要是为了保护它所表示的错误值无意间的（或者也可能是故意的）更新。  
+定义的 Error 方法是指针方法，而不是值方法。这样每次 New 分配的 error 实例都互不相等，即使是同样的错误值，也是不同的地址：
+```go
+fmt.Println(errors.New("TEST") == errors.New("TEST")) // false
+```
+这样可以避免比如像 io\.EOF 这样重要的错误，与仅仅只是包含同样错误消息的一个错误相等。
+
+## fmt.Errorf
+直接调用 errors.New 的情况比较少，只在直接能取得错误值的字符串信息的时候使用：
+```go
+func startCPUProfile(w io.Writer) error {
+	if w == nil {
+		return errors.New("nil File")
+	}
+	return pprof.StartCPUProfile(w)
+}
+
+```
+更多的情况是会得到一个错误值 err，而我们可以在这个错误值之上做一点包装，还需要做字符串格式化。有一个更易用的封装函数 fmt.Errorf，它额外还提供了字符串格式化的功能，所以一般都是用这个：
+```go
+doc, err := html.Parse(resp.Body)
+if err != nil {
+	return fmt.Errorf("parseing %s as HTML: %v", url, err)
+}
+```
