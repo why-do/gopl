@@ -23,6 +23,7 @@ func TestEval(t *testing.T) {
 	}
 	var prevExpr string
 	for _, test := range tests {
+		// 仅在表达式变更时才输出
 		if test.expr != prevExpr {
 			fmt.Printf("\n%s\n", test.expr)
 			prevExpr = test.expr

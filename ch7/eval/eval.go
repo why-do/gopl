@@ -41,6 +41,14 @@ type Env map[Var]float64
 // 每个表达式都必须提供提供这个方法，把它加到Expr接口中去
 type Expr interface {
 	Eval(env Env) float64
+	// Check 方法报告表达式中的错误，并把表达式中额变量加入 Vars 中
+	// Check 的输入参数是一个 Var 集合，它收集在表达式中发现的变量名
+	// 从逻辑来讲，这个集合应当是 Check 的输出结果而不是输入参数，
+	// 但因为这个方法是递归的，在这种情况下使用参数更为方便
+	// 调用方在最初时需要提供一个空的集合
+	// 构建接口的时候可以不要定义Check方法，
+	// 实现了上面的Eval方法之后，再考虑写一个Check方法来做检查
+	Check(vars map[Var]bool) error
 }
 
 // 为各个类型定义 Eval 方法
