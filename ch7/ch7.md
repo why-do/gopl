@@ -149,4 +149,12 @@ func writeMsg(w io.Writer, msg string) error {
 	return nil
 }
 ```
-为了避免代码重复，这里把检查挪到了工具函数 writeString 中。实际上，标准库提供了 io\.WriteString 函数，上面例子中的 stringWriter 接口定义和 writeString 函数就是和 io 包中的代码几乎一样的。这也是向 io.Writer 写入字符串的推荐方法。
+为了避免代码重复，这里把检查挪到了工具函数 writeString 中。实际上，标准库提供了 io\.WriteString 函数，上面例子中的 stringWriter 接口定义和 writeString 函数就是和 io 包中的代码几乎一样的。这也是向 io.Writer 写入字符串的推荐方法。  
+
+# 7.13 类型分支
+接口有两种不同的风格。  
+第一种风格下，典型的比如：io\.Reader、io\.Writer、fmt\.Stringer、sort\.Interface、http\.Handler 和 error。接口上的各种方法突出了满足这个接口的具体类型之间的相似性，但隐藏了各个具体类型的布局和各自特有的功能。这种风格强调了方法，而不是具体类型。  
+第二种风格则充分利用了接口值能够容纳各种具体类型的能力，它把接口作为这些类型的**联合**（union）来使用。类型断言用来在运行时区分这些类型并分别处理。这这种风格中，强调的是满足这个接口的具体类型，而不是这个接口的方法（经常是没变方法的空接口），也不注重信息隐藏。这种风格的接口使用方式称为**可识别联合**（discriminated union）。
+如果对面向对象熟悉，这两种风格分别对应：
++ **子类型多态**（subtype polymorphism）
++ **特设多态**（ad hoc polymorphism）

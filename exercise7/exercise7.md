@@ -31,3 +31,21 @@ func LimitReader(r io.Reader, n int64) io.Reader
 + 练习7.14：定义一个新的满足 Expr 接口的具体类，提供一个新操作，比如计算它的操作数数的最小值。因为 Parse 无法实例化新创建的类型，所以测试时需要构造语法树（当然，也可以扩充一下解析函数）。
 + 练习7.15：写一个程序从标准输入读取一个表达式，提示用户输入表达式中变量的值，最后计算表达式的值。请妥善处理各种异常。
 + 练习7.16：写一个基于 Web 的计算器程序。
+
+# 7.14 示例：基于标记的 XML 解析（TODO: 不做了）
++ 练习7.17：扩展 xmlelect，让我们不仅可以用名字，还可以用 CSS 风格的属性来做选择。比如一个`<div id="page" class="wide>`元素，不仅可以通过名字，还可以通过 id 和 class 来做匹配。
++ 练习7.18：使用基于标记的解析 API，写一个程序来读入一个任意的 XML 文档，构造出一棵树来展现 XML 中的主要节点。节点包括两种类型：CharData 节点表示文本字符串，Element 节点表示元素及其属性。每个元素节点包含它的子节点数组。
+可以参考如下类型定义：
+```go
+import "encoding/xml"
+
+type Node interface{} // CharData 或 *Element
+
+type CharData string
+
+type Element struct {
+	Type     xml.Name
+	Attr     []xml.Attr
+	Children []Node
+}
+```
