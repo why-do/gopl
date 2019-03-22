@@ -117,3 +117,36 @@ type Expr interface {
 如果断言类型T是一个接口类型，断言类型会检查x的动态类型是否满足T。如果检查成功，动态值并没有提取出来，仍然是一个接口值，接口值的类型和值部分也不会变，只是结果类型为接口类型T。就是说，这里类型断言就是一个接口值表达式，从一个接口类型变为拥有另外一套方法的接口类型，但保留了接口值中动态类型和动态值部分。如果检查失败还是会崩溃。  
 
 类型断言可以返回两个结果，此时操作不会因为检查失败而崩溃。多出来的返回值是一个布尔型，用来指示断言是否成功。按照惯例，一般变量名用ok。如果操作失败，ok为false，而第一个返回值会是断言类型的零值。  
+
+# 7.12 通过接口类型来查询特性（io.md）
+下面这段代码要往某个地方，写入一段字符信息。可能是http服务返回的信息，也可以是文件或者缓冲区，只要是 io\.Writer 接口就行：
+```go
+func writeMsg(w io.Writer, msg string) error {
+	if _, err := w.Write([]byte(msg)); err != nil {
+		return err
+	}
+	return nil
+}
+```
+因为 Write 方法需要一个字节切片（[]byte），而需要写入的是一个字符串，所以要做类型转换。这种转换需要进行内存分配和内存复制，但复制后内存又会被马上抛弃。这里就会有性能问题，这个内存分配会导致性能下降，需要避开这个内存分配。  
+如果深入查看 net\/http 包，这里w对应的动态类型还支持一个能高效写入字符串的 WriteString 方法，这个方法就避免了内存的分配。另外还有很多实现了 io\.Writer 的重要类也有 WriteString 方法，比如： \*bytes\.Buffer、\*os\.File 和 \*bufio\.Write。但是这里并不能假定 io\.Write 一定就有 WriteString 方法。这里可以定义一个新的接口，这个接口只包含 WriteString 方法，然后使用类型断言来判断w的动态类型是否满足这个新接口：
+```go
+// 将s写入w，如果w有WriteString方法，就直接调用该方法
+func writeString(w io.Writer, s string) (n int, err error) {
+	type stringWriter interface {
+		WriteString(string) (n int, err error)
+	}
+	if sw, ok := w.(stringWriter); ok {
+		return sw.WriteString(s) // 避免了内存复制
+	}
+	return w.Write([]byte(s)) // 分配了临时内存
+}
+
+func writeMsg(w io.Writer, msg string) error {
+	if _, err := writeString(w, msg); err != nil {
+		return err
+	}
+	return nil
+}
+```
+为了避免代码重复，这里把检查挪到了工具函数 writeString 中。实际上，标准库提供了 io\.WriteString 函数，上面例子中的 stringWriter 接口定义和 writeString 函数就是和 io 包中的代码几乎一样的。这也是向 io.Writer 写入字符串的推荐方法。
