@@ -8,5 +8,8 @@ $ clockwall NewYork=localhost:8010 London=localhost:8020 Tokyo=localhost:8030
 ```
 + 练习8.2：实现一个并发的 FTP 服务器。服务器可以解释从客户端发来的命令，例如 cd 用来改变目录，ls 用来列出目录，get 用来发送一个文件的内容，close 用来关闭连接。可以使用标准的 ftp 命令作为客户端，或者自己写一个。
 
+# 8.4.1 无缓冲通道
++ 练习8.3：在 netcat3 中，conn 接口有一个具体的类型 \*net\.TCPConn，它代表一个 TCP 连接。TCP 链接由两半边组成，可以通过 CloseRead 和 CloseWrite 方法分别关闭。修改主 goroutine，仅仅关闭连接的写半边，这样程序可以继续执行输出来自 reverb1 服务器的回声，即使标准输入已经关闭。（对 reverb2 程序来说更难一些，见练习 8.4。）
+
 # 8.9 取消
 + TODO：练习1.11
