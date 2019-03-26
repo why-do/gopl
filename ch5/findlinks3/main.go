@@ -24,7 +24,7 @@ func breadthFirst(f func(item string) []string, worklist []string) {
 	}
 }
 
-func crwal(url string) []string {
+func crawl(url string) []string {
 	fmt.Println(url)
 	list, err := links.Extract(url)
 	if err != nil {
@@ -36,5 +36,5 @@ func crwal(url string) []string {
 func main() {
 	// 开始广度遍历
 	// 从命令行参数开始
-	breadthFirst(crwal, os.Args[1:])
+	breadthFirst(crawl, os.Args[1:])
 }
