@@ -25,16 +25,20 @@ func crawl(url string) []string {
 
 func main() {
 	worklist := make(chan []string)
+	var n int // 等待发送到任务列表的数量
 
 	// 从命令行参数开始
+	n++
 	go func() { worklist <- os.Args[1:] }()
 
 	// 并发爬取 Web
 	seen := make(map[string]bool)
-	for list := range worklist {
+	for ; n > 0; n-- {
+		list := <- worklist
 		for _, link := range list {
 			if !seen[link] {
 				seen[link] = true
+				n++
 				go func(link string) {
 					worklist <- crawl(link)
 				}(link)

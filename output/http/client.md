@@ -216,8 +216,70 @@ func crawl(url string) []string {
 ## 程序退出
 现在来处理第二个问题，这个程序永远不会结束。虽然可能爬不完所有的链接，也就注意不到这个问题。为了让程序终止，当任务列表为空并且爬取 goroutine 都结束以后，需要从主循环退出：
 ```go
+func main() {
+	worklist := make(chan []string)
+	var n int // 等待发送到任务列表的数量
 
+	// 从命令行参数开始
+	n++
+	go func() { worklist <- os.Args[1:] }()
+
+	// 并发爬取 Web
+	seen := make(map[string]bool)
+	for ; n > 0; n-- {
+		list := <- worklist
+		for _, link := range list {
+			if !seen[link] {
+				seen[link] = true
+				n++
+				go func(link string) {
+					worklist <- crawl(link)
+				}(link)
+			}
+		}
+	}
+}
 ```
+在这个版本中，计数器 n 跟踪发送到任务列表中的任务个数。在每次将一组条目发送到任务列表前，就递增变量 n。在主循环中没处理一个 worklist 后就递减1，见减到0表示再没有任务了，于是可以正常退出。  
+之前的版本，使用 range 遍历通道，只要通道关闭，也是可以退出循环的。但是这里没有一个地方可以确认再没有任务需要添加了从而加上一句关闭通道的close语句。所以需要一个计数器 n 来记录还有多少个任务等待 worklist 处理。  
+现在，并发爬虫的速度大约比之前快了20倍，应该不会出现错误，并且能够正确退出。  
+
+## 另一个方案
+这里还有一个替代方案，解决过度并发的问题。这个版本使用最初的 crawl 函数，它没有技术信号量，但是通过20个长期存活的爬虫 goroutine 来调用它，这样也保证了最多20个HTTP请求并发执行：
+```go
+func main() {
+	worklist := make(chan []string) // 可能有重复的URL列表
+	unseenLinks := make(chan string) // 去重后的eURL列表
+
+	// 向任务列表中添加命令行参数
+	go func() { worklist <- os.Args[1:] }()
+
+	// 创建20个爬虫 goroutine 来获取每个不可见链接
+	for i := 0; i < 20; i++ {
+		go func() {
+			for link := range unseenLinks {
+				foundLinks := crawl(link)
+				go func() { worklist <- foundLinks }()
+			}
+		}()
+	}
+	
+	// 主 goroutine 对 URL 列表进行去重
+	// 并把没有爬取过的条目发送给爬虫程序
+	seen := make(map[string]bool)
+	for list := range worklist {
+		for _, link := range list {
+			if !seen[link] {
+				seen[link] = true
+				unseenLinks <- link
+			}
+		}
+	}
+}
+```
+爬取 goroutine 使用同一个通道 unseenLinks 接收要爬取的URL，主 goroutine 负责对从任务列表接收到的条目进行去重，然后发送每一个没有爬取过的条目到 unseenLinks 通道，之后被爬取 goroutine 接收。  
+crawl 发现的每组链接，通过精心设计的 goroutine 发送到任务列表来避免死锁。  
+这里例子目前也没有解决程序退出的问题，并且不能简单的参考之前的做法使用计数器 n 来进行计数。上个版本中，计数器 n 都是在主 goroutine 进行操作的，这里也是可以继续用这个方法来计数判断程序是否退出，但是在不同的 goroutine 中操作计数器时，就需要考虑并发安全的问题。聚具体实现略。  
 
 # 5.8 延迟函数调用
 
