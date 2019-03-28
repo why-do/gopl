@@ -80,3 +80,4 @@ TODO: gopl.io/ch8/cake ，性能基准（参考 11.4 节）
 重申了 5.6.1 里提到的**捕获迭代变量**的问题，这次是在 goroutine 中的情况，和避免方式。  
 TODO：生成图像的缩略图，gopl.io/ch8/thumbnail 包提供的 ImageFile 函数，书上不展示这个函数的细节。  
 
+# 8.7 使用 select 多路复用
