@@ -81,3 +81,115 @@ TODO: gopl.io/ch8/cake ，性能基准（参考 11.4 节）
 TODO：生成图像的缩略图，gopl.io/ch8/thumbnail 包提供的 ImageFile 函数，书上不展示这个函数的细节。  
 
 # 8.7 使用 select 多路复用
+有时候需要在多个通道上接收，不能只从一个通道上接收，因为任何一个操作都会在完成前阻塞。所以需要**多路复用**那些操作过程，为了实现这个目的，需要一个 select 语句：
+```go
+select {
+case <-ch1:
+	// ...
+case x := <-ch2:
+	// ...use x...
+case ch3 <- y:
+	// ...
+default:
+	// ...
+}
+```
+上面展示的是 select 语句的通用形式。像 switch 语句一样，它有一系列的情况和一个可选的默认分支。每一个情况指定一次**通信**（在一些通道上进行发送或接收操作）和关联的一段代码块。接收表达式操作可能出现在它本身上，像第一个情况，或者在一个短变量声明中，像第二个情况。第二种形式可以让你引用所接收的值。  
+select 一直等待，直到一次通信来告知有一些情况可以执行。然后，它进行这次通信，执行此情况所对应的语句，其他的通信将不会发生。  
+
+## 使用示例
+下面是一个微妙的例子。通道 ch 的缓冲区大小为 1，它要么是空的，要么是满的，因此只有在其中一个状况下可以执行，要么在 i 是偶数时发送，要么在 i 是奇数时接收。它总是输出 0 2 4 6 8：
+```go
+func main() {
+	ch := make(chan int, 1)
+	for i := 0; i < 10; i++ {
+		select {
+		case x := <-ch:
+			fmt.Println(x)
+		case ch <- i:
+		}
+	}
+}
+```
+如果多个情况同时满足，select 随机选择一个，这样保证每一个通道有相同的机会被选中。在前一个例子中增加缓冲区的容量，会使输出变得不可确定，因为当缓冲既不空也不满的情况，相当于 select 语句在随机做选择。  
+## 非阻塞模式
+有时候我们试图在一个通道上发送或接收，但是不想在通道没有准备好的情况下被阻塞，**非阻塞通信**。这使用 select 语句也可以做到。select 可以有一个默认情况，它用来指定在没有其他的通信发生时可以立即执行的动作。  
+下面的 select 语句尝试从 abort 通道中接收一个值，如果没有值，它什么也不做。这是一个非阻塞的接收操作。重复这个动作称为对通道**轮询**：
+```go
+select {
+case <-abort:
+	fmt.Println("Launch aborted!")
+	return
+default:
+	// 不执行任何操作
+}
+```
+
+## 通道的零值
+通道的零值是 nil。令人惊讶的是，nil 通道有时候很有用。因为在 nil 通道上发送和接收将永远阻塞。对于 select 语句中的情况，如果其通道是 nil，它将永远不会被选择。可以用 nil 来开启或禁用特性所对应的情况，比如超时处理或者取消操作，响应其他的输入事件或者发送事件。  
+
+# 8.8 示例：并发目录遍历
+这里要构建一个程序，根据命令行指定的输入，报告一个或多个目录的磁盘使用情况，类似 UNIX 的 du 命令。  
+
+## 递归遍历目录
+大多数的工作由下面的 walkDir 函数完成，它使用 dirents 辅助函数来枚举目录中的条目：
+```go
+// walkDir 递归地遍历以 dir 为根目录的整个文件树
+// 并在 fileSizes 上发送每个已找到的文件的大小
+func walkDir(dir string, fileSizes chan<- int64) {
+	for _, entry := range dirents(dir) {
+		if entry.IsDir() {
+			subdir := filepath.Join(dir, entry.Name())
+			walkDir(subdir, fileSizes)
+		} else {
+			fileSizes <- entry.Size()
+		}
+	}
+}
+
+// dirents 返回 dir 目录中的条目
+func dirents(dir string) []os.FileInfo {
+	entries, err := ioutil.ReadDir(dir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "du1: %v\n", err)
+		return nil
+	}
+	return entries
+}
+```
+ioutil\.ReadDir 函数返回一个 os\.FileInfo 类型的切片，针对单个文件同样的信息可以通过调用 os\.Stat 函数来返回。对每一个子目录，walkDir 递归调用它自己，对于每一个文件，walkDir 发送一条消息到 fileSizes 通道。消息是文件所占用的字节数。  
+
+## 计算大小并输出
+下面的 main 函数使用两个 goroutine。后台 goroutine 调用 walkDir 遍历命令行上指定的每一个目录，最后关闭 fileSizes 通道。主 goroutine 计算从通道中接收的文件的大小的和，最后输出总数：
+```go
+func main() {
+	// 确定初始目录
+	flag.Parse()
+	roots := flag.Args()
+	if len(roots) == 0 {
+		roots = []string{"."}
+	}
+	// 遍历文件树
+	fileSizes := make(chan int64)
+	go func() {
+		for _, root := range roots {
+			walkDir(root, fileSizes)
+		}
+		close(fileSizes)
+	}()
+	// 输出结果
+	var nfiles, nbytes int64
+	for size := range fileSizes {
+		nfiles++
+		nbytes += size
+	}
+	printDiskUsage(nfiles, nbytes)
+}
+
+func printDiskUsage(nfiles, nbytes int64) {
+	fmt.Printf("%d files   %.2f GB\n", nfiles, float64(nbytes)/(1<<30)) // 1<<30 就是 2**30 就是 1024*1024*1024
+}
+```
+现在程序可以正常的工作。
+
+## 汇报进度
