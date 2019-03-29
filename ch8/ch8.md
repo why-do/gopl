@@ -193,3 +193,232 @@ func printDiskUsage(nfiles, nbytes int64) {
 现在程序可以正常的工作。
 
 ## 汇报进度
+如果程序可以汇报进度的话，会更加友好。如果仅仅只是把 printDiskUsage 调用移动到循环内部，会有非常多的输出。  
+下面的示例，修改了主 goroutine 中记录结果的部分。不是在每次迭代中输出，而是加了一个定时器，通过 select 定期输出一次结果。另外还加上了 -v 参数来控制，可以选择性的开启这个功能。如果不开启功能，那么 tick 通道的值就是 nil，它对应的分支在select 中就永远是阻塞的。相当于没有开启这个选项，很直观的理解：
+```go
+var verbose = flag.Bool("v", false, "周期性的输出进度")
+
+func main() {
+	// 确定初始目录，没变化
+	flag.Parse()
+	roots := flag.Args()
+	if len(roots) == 0 {
+		roots = []string{"."}
+	}
+	// 遍历文件树，没变化
+	fileSizes := make(chan int64)
+	go func() {
+		for _, root := range roots {
+			walkDir(root, fileSizes)
+		}
+		close(fileSizes)
+	}()
+
+	// 定期输出结果
+	var tick <-chan time.Time
+	if *verbose {
+		tick = time.Tick(500 * time.Millisecond)
+	}
+	var nfiles, nbytes int64
+loop:
+	for {
+		select {
+		case size, ok := <-fileSizes:
+			if !ok {
+				break loop // fileSizes 关闭，则退出，相当于原来的遍历结束
+			}
+			nfiles++
+			nbytes += size
+		case <-tick:
+			printDiskUsage(nfiles, nbytes)
+		}
+	}
+	printDiskUsage(nfiles, nbytes)
+}
+```
+因为这个版本有两个通道需要接收 size、tick，所以无法使用 range 循环了。所以第一个 select 的分支需要通过第二个参数 ok  来判断通道是否已经关闭。这个的 break 退出使用了标签，因为没有标签的 break 只能跳出当前的 select 这层，而这里是需要跳出外层的 for 循环。  
+这里的 flag 的解析也值得借鉴，非常简单。首先是解析指定的参数，这里是 -v 参数。多余的参数会通过 flag.Args() 返回一个字符串切片。调用的时候，必须把解析的参数放在前面：
+```
+PS H:\Go\src\gopl\ch8\du2> go run main.go -v E:\BaiduNetdiskDownload E:\XMPCache E:\Downloads
+4 files   0.02 GB
+41 files   2.16 GB
+177 files   6.99 GB
+567 files   46.66 GB
+605 files   50.26 GB
+PS H:\Go\src\gopl\ch8\du2>
+```
+
+## 提高并发效率
+还可以进一步提高效率，这里的 walkDir 也是可以并发调用从而充分利用磁盘系统的并行机制。这个版本使用了 sycn.WaitGroup 来为并发调用的 walkDir 计数。当计数器为减为 0 的时候，关闭 fileSizes 通道：
+```go
+var verbose = flag.Bool("v", false, "周期性的输出进度")
+
+func main() {
+	// 确定初始目录，没变化
+	flag.Parse()
+	roots := flag.Args()
+	if len(roots) == 0 {
+		roots = []string{"."}
+	}
+
+	// 并行遍历每一个文档树
+	fileSizes := make(chan int64)
+	var n sync.WaitGroup
+	for _, root := range roots {
+		n.Add(1)
+		go walkDir(root, &n, fileSizes) // 注意，多传了一个参数
+	}
+	go func() {
+		n.Wait()
+		close(fileSizes)
+	}()
+
+	// 定期输出结果，没变化
+	var tick <-chan time.Time
+	if *verbose {
+		tick = time.Tick(500 * time.Millisecond)
+	}
+	var nfiles, nbytes int64
+loop:
+	for {
+		select {
+		case size, ok := <-fileSizes:
+			if !ok {
+				break loop // fileSizes 关闭，则退出，相当于原来的遍历结束
+			}
+			nfiles++
+			nbytes += size
+		case <-tick:
+			printDiskUsage(nfiles, nbytes)
+		}
+	}
+	printDiskUsage(nfiles, nbytes)
+}
+
+func printDiskUsage(nfiles, nbytes int64) {
+	fmt.Printf("%d files   %.2f GB\n", nfiles, float64(nbytes)/(1<<30)) // 1<<30 就是 2**30 就是 1024*1024*1024
+}
+
+func walkDir(dir string, n *sync.WaitGroup, fileSizes chan<- int64) { // 注意，多了个参数
+	defer n.Done() // 记得退出时计数器要减1
+	for _, entry := range dirents(dir) {
+		if entry.IsDir() {
+			subdir := filepath.Join(dir, entry.Name())
+			walkDir(subdir, n, fileSizes) // 注意，多了个参数
+		} else {
+			fileSizes <- entry.Size()
+		}
+	}
+}
+```
+
+## 限制并发
+还需要限制一下并发数，这里要修改一下 dirents 函数来使用计数信号量进行限制，防止同时打开太多的文件：
+```go
+// 用于限制目录并发数的计数信号量
+var sema = make(chan struct{}, 20)
+
+// dirents 返回 dir 目录中的条目
+func dirents(dir string) []os.FileInfo {
+	sema <- struct{}{}        // 获取令牌
+	defer func() { <-sema }() // 释放令牌
+	entries, err := ioutil.ReadDir(dir) // 这个打开文件的操作需要限制并发，在这句之前加上计数信号量，非常合适
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "du1: %v\n", err)
+		return nil
+	}
+	return entries
+}
+```
+现在这个版本的是最好的了。不过下面还会再增加一个取消的操作，这里的取消会用到广播的机制。  
+
+# 8.9 取消（广播）
+一个 goroutine 无法直接终止另一个，因为这样会让所有的共享变量状态处于不确定状态。正确的做法是使用通道来传递一个信号，当 goroutine 接收到信号时，就终止自己。这里要讨论的是如何同时取消多个 goroutine。  
+一个可选的做法是，给通道发送你要取消的 goroutine 同样多的信号。但是如果一些 goroutine 已经自己终止了，这样计数就多了，就会在发送过程中卡住。如果某些 goroutine 还会自我繁殖，那么信号的数量又会太少。通常，任何时刻都很难知道有多少个 goroutine 正在工作。对于取消操作，这里需要一个可靠的机制在一个通道上**广播**一个事件，这样所以的 goroutine 就都能收到信号，而不用关心具体有多少个 goroutine。  
+当一个通道关闭且已经取完所有发送的值后，接下来的接收操作都会立刻返回，得到零值。就可以利用这个特性来创建一个广播机制。第一步，创建一个取消通道，在它上面不发送任何的值，但是它的关闭表明程序需要停止它正在做的事前。
+
+## 查询状态
+还要定义一个工具函数 cancelled，在它被调用的时候检测或**轮询**取消状态：
+```go
+var done = make(chan struct{})
+
+func cancelled() bool {
+	select {
+	case <-done:
+		return true
+	default:
+		return false
+	}
+}
+```
+
+## 发送取消广播
+接下来，创建一个读取标准输入的 goroutine，它通常连接到终端，当用户按回车后，这个 goroutine 通过关闭 done 通道来广播取消事件：
+```go
+// 当检测到输入时，广播取消
+go func() {
+	os.Stdin.Read(make([]byte, 1)) // 读一个字节
+	close(done)
+}()
+```
+
+## 响应取消操作
+现在要让所有的 goroutine 来响应这个取消操作。在主 goroutine 中的 select 中，尝试从 done 接收。如果接收到了，就需要进行取消操作，但是在结束之前，它必须耗尽 fileSizes 通道，丢弃它所有的值，知道通道关闭。这么做是为了保证所有的 walkDir 调用可以执行完，不会卡在向 fileSizes 通道发送消息上：
+```go
+for {
+	select {
+	case <-done:
+		// 耗尽 fileSizes，让已经创建的 goroutine 结束
+		for range fileSizes {
+			// 什么也不做
+		}
+		return
+	case siez, ok := <-fileSizes:
+		if !ok {
+			break loop
+		}
+		nfiles++
+		nbytes += siez
+	case <-tick:
+		printDiskUsage(nfiles, nbytes)
+	}
+}
+```
+walkDir 的 goroutine 在开始的时候轮询取消状态。如果是取消的状态，就什么都不做立即返回。这样在取消后创建的 goroutine 就会什么都不做而是立刻返回：
+```go
+func walkDir(dir string, n *sync.WaitGroup, fileSizes chan<- int64) {
+	defer n.Done()
+	if cancelled() {
+		return
+	}
+	for _, entry := range dirents(dir) {
+		if entry.IsDir() {
+			subdir := filepath.Join(dir, entry.Name())
+			walkDir(subdir, n, fileSizes)
+		} else {
+			fileSizes <- entry.Size()
+		}
+	}
+}
+```
+现在基本就避免了在取消后创建新的 goroutine。但是其他已经创建的 goroutine 则会等待他们执行完毕。要想更快的响应，就需要更多的程序逻辑变更入侵。要确保在取消事件之后没有更多昂贵的操作发生。这就需要更新更多的代码，但是通常可以通过在少量重要的地方检察取消装来来打到目的。在 dirents 中获取信号量令牌的操作也可需要快速结束：
+```go
+func dirents(dir string) []os.FileInfo {
+	select {
+	case sema <- struct{}{}: // 获取令牌
+	case <-done:
+		return nil // 取消
+	}
+	defer func() { <-sema }() // 释放令牌
+	entries, err := ioutil.ReadDir(dir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "du1: %v\n", err)
+		return nil
+	}
+	return entries
+}
+```
+现在，当取消事件发生时，已经进入 dirents 函数的调用，如果已经获取到了令牌，则会执行完毕，但是返回后，在地递归调用 walkDir 的时候就会快速退出。那些还没获取令牌的调用，此时在 select 中会因为从 done 通道中接收到取消的广播而直接返回 nil。  
+
+## 测试的技巧
+期望的情况是，当然是当取消事件到来时 main 函数可以返回，然后程序随之退出。如果发现在取消事件到来的时候 main 函数没有返回，可以执行一个 panic 调用。从崩溃的转存储信息中通常含有足够的信息来帮助我们分析，发现哪些 goroutine 还没有合适的取消。也可能是已经取消了，但是需要的时间比较长。总之，使用 panic 可以帮助查找原因。  

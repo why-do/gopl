@@ -22,5 +22,11 @@ $ clockwall NewYork=localhost:8010 London=localhost:8020 Tokyo=localhost:8030
 # 8.7 使用 select 多路复用
 + 练习8.8：使用 select 语句，给 8.3 节的回声服务器加一个超时，这样可以断开 10s 内没有任何呼叫的客户端。
 
+# 8.8 示例：并发目录遍历
++ 练习8.9：写一个 du 版本，它可以为每一个指定的 root 目录计算和定期输出各自占用的总空间。
+
 # 8.9 取消
++ 练习8.10：HTTP 请求可以通过关闭 http.Request 结构中可选的 Cancel 通道进行取消。修改 8.6 节的网页爬虫使其支持取消操作。
+提示：http.Get 遍历函数没有提供定制 Request 的机会。使用 http.NewRequest 创建请求，设置它的 Cancel 字段，然后调用 http.DefaultClient.Do(req) 来执行请求。  
++ 练习8.11：使用 8.4.4 节的 mirroredQuery 程序中的方法，实现 fetch 的一个变种，它并发请求多个 URL，当第一个响应返回的时候，取消其他的请求。
 + TODO：练习1.11
