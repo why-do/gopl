@@ -40,6 +40,42 @@ func main() {
 第一种是直接把变量的指针传递给函数作为第一个参数，函数内部会对该变量进行赋值。这种形式必须写在一个函数体的内部。  
 第二种是函数会把数据的指针作为函数的返回值返回，这种形式就是给变量赋值，不需要现在函数体内，不过拿到的返回值是指针。  
 
+## 切片加参数
+这是上面两个实现的结合，可以提供一组 os\.Args 的参数，另外还可以使用 flag 来进行参数设置。  
+首先是不需要参数设置的情况。仅仅就是使用 flag 包提供的方法来代替使用 os\.Args 的实现：
+```go
+func main() {
+	flag.Parse()
+	for _, arg := range flag.Args() {
+		fmt.Println(arg)
+	}
+}
+```
+基本上没什么差别，不过引入 flag 包之后，就可以使用参数了，比如加上一个 -upper 参数，让输出全大写：
+```go
+func main() {
+	var upper bool
+	flag.BoolVar(&upper, "upper", false, "是否大写")
+	flag.Parse()
+	for _, arg := range flag.Args() {
+		if upper {
+			fmt.Println(strings.ToUpper(arg))
+		} else {
+			fmt.Println(arg)
+		}
+	}
+}
+```
+自定义切片类型的实现下面会讲。不过像这样简单的使用，只有一个切片类型，也不需要使用自定义类型就可以方便的实现了：
+```
+PS G:\Steed\Documents\Go\src\localdemo\flag> go run main.go -upper hello hi bye
+HELLO
+HI
+BYE
+PS G:\Steed\Documents\Go\src\localdemo\flag>
+```
+命令行参数必须放在前面，把不需要解析的参数全部放在最后。  
+
 ## 解析时间（7.4 使用 flag.Value 来解析参数）
 时间长度类的命令行标志应用广泛，这个功能内置到了 flag 包中。  
 先看看源码中的示例，之后在自定义命令行标志的时候也能有个参考。下面的示例，实现了暂停指定时间的功能：
