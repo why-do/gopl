@@ -143,6 +143,36 @@ PS H:\Go\src\gopl\ch5\outline2> go run main.go http://baidu.com
 PS H:\Go\src\gopl\ch5\outline2>
 ```
 
+# 5.8 延迟函数调用
+
+## 获取页面的title
+直接使用 http\.Get 请求返回的数据，如果请求的 URL 是 HTML 那么一定会正常的工作，但是许多页面包含图片、文字和其他文件格式。如果让 HTML 解析器去解析这类文件可能会发生意料外的状况。这就需要首先判断Get请求返回的是一个HTML页面，通过返回的响应头的Content-Type来判断。一般是：Content-Type: text/html; charset=utf-8。然后才是解析HTML的标签获取title标签的内容：
+```go
+// ch5/title2
+```
+
+## 将页面保存到文件
+使用Get请求一个页面，然后保存到本地的文件中。使用 path.Base 函数获得 URL 路径最后一个组成部分作为文件名：
+```go
+// ch5/fetch
+```
+示例中的 fetch 函数中，会 os.Create 打开一个文件。但是如果使用延迟调用 f.Close 去关闭一个本地文件就会有些问题，因为 os.Create 打开了一个文件对其进行写入、创建。在许多文件系统中尤其是NFS，写错误往往不是立即返回而是推迟到文件关闭的时候。如果无法检查关闭操作的结果，就会导致一系列的数据丢失。然后，如果 io.Copy 和 f.Close 同时失败，我们更倾向于报告 io.Copy 的错误，因为它发生在前，更有可能记录失败的原因。示例中的最后一个错误处理就是这样的处理逻辑。  
+一般都是利用 defer 来处理关闭的操作，上面的逻辑写在 defer 中应该也只需要把 if 的代码块封装到匿名函数中就可以了：
+```go
+	f, err := os.Create(local)
+	if err != nil {
+		return "", 0, err
+	}
+	defer func() {
+		if closeErr := f.Close(); err == nil {
+			err = closeErr
+		}
+	}()
+	n, err = io.Copy(f, resp.Body)
+	return local, n, err
+```
+这里的做法就是在 defer 中改变返回给调用者的结果。
+
 # 5.6 匿名函数
 网络爬虫的遍历。
 
@@ -281,32 +311,172 @@ func main() {
 crawl 发现的每组链接，通过精心设计的 goroutine 发送到任务列表来避免死锁。  
 这里例子目前也没有解决程序退出的问题，并且不能简单的参考之前的做法使用计数器 n 来进行计数。上个版本中，计数器 n 都是在主 goroutine 进行操作的，这里也是可以继续用这个方法来计数判断程序是否退出，但是在不同的 goroutine 中操作计数器时，就需要考虑并发安全的问题。聚具体实现略。  
 
-# 5.8 延迟函数调用
+## 深度限制
+回到使用令牌并能正确退出的方案。虽然有结束后退出的逻辑，但是一般情况下，一个网站总用无限个链接，永远爬取不完。现在再增加一个功能，深度限制：如果用户设置 -depth=3，那么仅最多通过三个链接可达的 URL 能被找到。另外还增加了一个功能，统计总共爬取的页面的数量。现在每次打印 URL 的时候，都会加上深度和序号。  
+先说简单的，页面计数的功能。就是要一个计数器，但是需要并发在不同的 goroutine 里操作，所以要考虑并发安全。通过通道就能实现，在主 goroutine 中单独再用一个 goroutine 负责计数器的自增：
+```go
+var count = make(chan int) // 统计一共爬取了多个页面
 
-## 获取页面的title
-首先判断Get请求返回的是一个HTML页面，通过返回的响应头的Content-Type来判断。一般是：Content-Type: text/html; charset=utf-8。然后才是解析HTML的标签获取title标签的内容：
-```go
-// ch5/title2
-```
-
-## 将页面保存到文件
-使用Get请求一个页面，然后保存到本地的文件中。使用 path.Base 函数获得 URL 路径最后一个组成部分作为文件名：
-```go
-// ch5/fetch
-```
-示例中的 fetch 函数中，会 os.Create 打开一个文件。但是如果使用延迟调用 f.Close 去关闭一个本地文件就会有些问题，因为 os.Create 打开了一个文件对其进行写入、创建。在许多文件系统中尤其是NFS，写错误往往不是立即返回而是推迟到文件关闭的时候。如果无法检查关闭操作的结果，就会导致一系列的数据丢失。然后，如果 io.Copy 和 f.Close 同时失败，我们更倾向于报告 io.Copy 的错误，因为它发生在前，更有可能记录失败的原因。示例中的最后一个错误处理就是这样的处理逻辑。  
-一般都是利用 defer 来处理关闭的操作，上面的逻辑写在 defer 中应该也只需要把 if 的代码块封装到匿名函数中就可以了：
-```go
-	f, err := os.Create(local)
-	if err != nil {
-		return "", 0, err
-	}
-	defer func() {
-		if closeErr := f.Close(); err == nil {
-			err = closeErr
+func main() {
+	// 负责 count 值自增的 goroutine
+	go func() {
+		var i int
+		for {
+			i++
+			count <- i
 		}
 	}()
-	n, err = io.Copy(f, resp.Body)
-	return local, n, err
+
+	flag.Parse()
+	// 省略主函数中的其他内容
+}
+
+func crawl(url string, depth int) urllist {
+	fmt.Println(depth, <-count, url)
+	tokens <- struct{}{} // 获取令牌
+	list, err := links.Extract(url)
+	<-tokens // 释放令牌
+	if err != nil {
+		log.Print(err)
+	}
+	return urllist{list, depth + 1}
+}
 ```
-这里的做法就是在 defer 中改变返回给调用者的结果。
+然后是深度限制的核心功能。首先要为 worklist 添加深度的信息，把原本的字符串切片加上深度信息组成一个结构体作为 worklist 的元素：
+```go
+type urllist struct {
+	urls  []string
+	depth int
+}
+```
+现在爬取页面后先把返回的信息暂存在 nextList 中，而不是直接添加到 worklist。检查 nextList 中的深度，如果符合深度限制，就向 worklist 添加，并且要增加 n 计数器。如果超出深度限制，就什么也不做。原本主函数的 for 循环里的每一个 goroutine 都会增加 n 计数器，所以计数器的自增是在主函数里完成的。现在需要在每一个 goroutine 中判断是否要对计数器进行自增，所以这里要把计数器换成并发安全的 sync\.WaitGroup 然后可以在每个 goroutine 里来安全的操作计数器。这里要防止计数器过早的被减到0，不过逻辑还算简单，就是在向 worlist 添加元素之前进行加1操作。  
+然后 n 计数器的减1的操作要上更加复杂。需要在 worklist 里的一组 URL 全部操作完之后，才能把 n 计数器减1，这就需要再引入一个计数器 n2。只有等计数器 n2 归0后，才能将计数器 n 减1。这里还要防止程序卡死。向 worklist 添加元素额操作会一直阻塞，直到主函数 for 循环的下一次迭代时从 worklist 接收数据位置。所以要仔细考虑每个操作的正确顺序，具体还是看代码吧：
+```go
+// exercise8/e6
+```
+主函数 for 循环最后对计数器 n 和 n2 的操作，也是可以放到一个 goroutine 里的。现在会在 for 循环每次迭代的时候，等待直到一个 worklist 全部处理完毕后，才会处理下一个 worklist。所以这部分的逻辑还是串行的，不个这样方面确认程序的正确性。之后可以结单修改一下，也放到一个 goroutine 中处理，让 for 循环可以继续迭代：
+```go
+go func() {
+	n2.Wait()
+	n.Done()
+}()
+```
+最后测试程序的还有一个困扰的问题。不过仔细检查之后，其实并不是问题。就是程序在所有的 URL 输出之后，还会等待比较长的一段时间才会退出。一个真正的爬虫，不是要输出 URL 而是要爬取页面。程序是在每次准备爬取页面之前，先将页面的 URL 打印输出，然后去爬取并解析页面的内容。全部 URL 输出完，程序退出之前，这段没有任何输出的时间里，就是在对剩余的页面进行爬取。原本爬完之后，检查到深度超过限制就不会做任何操作。这里可以在检查后，把返回的所有连接的 URL 和深度也进行输出。这段代码已经写在例子中但是被注释掉了，放开后，就能看到更多的输出内容，确认退出前的这段时间里，程序依然在正确的执行。  
+
+# 支持手动取消操作（8.9 取消）
+继续添加功能，这次在任务开始后，可以通过键盘输入，来终止任务。这类操作还是比较常见的，下面应该是一种比较通用的做法。这类还包括一些额外的技巧的讲解。  
+
+## 8.9 取消（广播）
+首先了解一下取消操作为什么需要一个广播的机制，以及利用通道关闭的特性，实现广播。  
+一个 goroutine 无法直接终止另一个，因为这样会让所有的共享变量状态处于不确定状态。正确的做法是使用通道来传递一个信号，当 goroutine 接收到信号时，就终止自己。这里要讨论的是如何同时取消多个 goroutine。  
+一个可选的做法是，给通道发送你要取消的 goroutine 同样多的信号。但是如果一些 goroutine 已经自己终止了，这样计数就多了，就会在发送过程中卡住。如果某些 goroutine 还会自我繁殖，那么信号的数量又会太少。通常，任何时刻都很难知道有多少个 goroutine 正在工作。对于取消操作，这里需要一个可靠的机制在一个通道上**广播**一个事件，这样所以的 goroutine 就都能收到信号，而不用关心具体有多少个 goroutine。  
+当一个通道关闭且已经取完所有发送的值后，接下来的接收操作都会立刻返回，得到零值。就可以利用这个特性来创建一个广播机制。第一步，创建一个取消通道，在它上面不发送任何的值，但是它的关闭表明程序需要停止它正在做的事前。  
+
+## 查询状态
+还要定义一个工具函数 cancelled，在它被调用的时候检测或**轮询**取消状态：
+```go
+var done = make(chan struct{})
+
+func cancelled() bool {
+	select {
+	case <-done:
+		return true
+	default:
+		return false
+	}
+}
+```
+如果需要在原本是通道操作的地方增加取消操作判断的逻辑，那么就对原本要操作的通道和取消广播的通道写一个 select 多路复用。  
+如果要判断的位置原本没有通道，那么就是一个非阻塞的只有取消广播通道的 select 多路复用，就是这里的工具函数。简单来讲，直接调用工具函数进行判断即可。  
+之后的代码里就是这么做的。  
+
+## 发送取消广播
+接下来，创建一个读取标准输入的 goroutine，它通常连接到终端，当用户按回车后，这个 goroutine 通过关闭 done 通道来广播取消事件：
+```go
+// 当检测到输入时，广播取消
+go func() {
+	os.Stdin.Read(make([]byte, 1)) // 读一个字节
+	close(done)
+}()
+```
+把这个新的 goroutine 加在主函数的开头就好了。  
+
+## 响应取消操作
+现在要让所有的 goroutine 来响应这个取消操作。在主 goroutine 中的 select 中，尝试从 done 接收。如果接收到了，就需要进行取消操作，但是在结束之前，它必须耗尽 worklist 通道，丢弃它所有的值，直到通道关闭。这么做是为了保证 for 循环里之前迭代时调用的匿名函数都可以执行完，不会卡在向 worklist 通道发送消息上：
+```go
+var list urllist
+var worklistok bool
+select {
+case <-done:
+	// 耗尽 worklist，让已经创建的 goroutine 结束
+	for range worklist {
+		n.Done()
+	}
+	// 执行到这里的前提是迭代完 worklist，就是需要 worklist 关闭
+	// 关闭 worklist 则需要 n 计数器归0。而 worklist 每一次减1，需要一个 n2 计数器归零
+	// 所以，下面的 return 应该不会在其他 goroutine 运行完毕之前执行
+	return
+case list, worklistok = <-worklist:
+	if !worklistok {
+		break loop
+	}
+}
+```
+
+之后的 for 循环会没每个 URL 开启一个 goroutine。在每一次迭代开始的时候轮询取消状态。如果是取消的状态，就什么都不做并且终止迭代：
+```go
+for _, link := range list.urls {
+	if cancelled() {
+		break
+	}
+	// 省略之后的代码
+}
+```
+
+现在基本就避免了在取消后创建新的 goroutine。但是其他已经创建的 goroutine 则会等待他们执行完毕。要想更快的响应，就需要更多的程序逻辑变更入侵。要确保在取消事件之后没有更多昂贵的操作发生。这就需要更新更多的代码，但是通常可以通过在少量重要的地方检察取消装来来达到目的。在 crawl 中获取信号量令牌的操作也可需要快速结束：
+```go
+func crawl(url string, depth int) urllist {
+	select {
+	case <-done:
+		return urllist{nil, depth + 1}
+	case tokens <- struct{}{}: // 获取令牌
+		fmt.Println(depth, <-count, url)
+	}
+	list, err := links.Extract(url, done)
+	<-tokens // 释放令牌
+	if err != nil && !strings.Contains(err.Error(), "net/http: request canceled") {
+		log.Print(err)
+	}
+	return urllist{list, depth + 1}
+}
+```
+在 crwal 函数中，调用了 links.Extract 函数。这是一个非常耗时的网络爬虫操作，并且不会马上返回。正常需要等到页面爬取完毕，或者连接超时才返回。而我们的程序也会一直等待所有的爬虫返回后才会退出。所以这里在调用的时候，把取消广播的通道传递传递给函数了，下面就是修改 links.Extract 来响应这个取消操作，立刻终止爬虫并返回。  
+
+## 关闭HTTP请求
+HTTP 请求可以通过关闭 http.Request 结构体中可选的 Cancel 通道进行取消。http.Get 便利函数没有提供定制 Request 的机会。这里要使用 http.NewRequest 创建请求，设置它的 Cancel 字段，然后调用 http.DefaultClient.Do(req) 来执行请求。对 links 包中的 Extract 函数按上面说的进行修改，具体如下：
+```go
+// 向给定的URL发起HTTP GET 请求
+// 解析HTML并返回HTML文档中存在的链接
+func Extract(url string, done <-chan struct{}) ([]string, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Cancel = done
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, fmt.Errorf("get %s: %s", url, resp.Status)
+	}
+	// 仅修改开头的部分，后面的代码省略
+}
+```
+
+## 测试的技巧
+期望的情况是，当然是当取消事件到来时 main 函数可以返回，然后程序随之退出。如果发现在取消事件到来的时候 main 函数没有返回，可以执行一个 panic 调用。从崩溃的转存储信息中通常含有足够的信息来帮助我们分析，发现哪些 goroutine 还没有合适的取消。也可能是已经取消了，但是需要的时间比较长。总之，使用 panic 可以帮助查找原因。  
+
+# 镜像服务器请求资源
+TODO: 练习8.11，实现 mirroredQuery。
