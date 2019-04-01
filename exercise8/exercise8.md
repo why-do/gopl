@@ -29,7 +29,6 @@ $ clockwall NewYork=localhost:8010 London=localhost:8020 Tokyo=localhost:8030
 + 练习8.10：HTTP 请求可以通过关闭 http.Request 结构中可选的 Cancel 通道进行取消。修改 8.6 节的网页爬虫使其支持取消操作。
 提示：http.Get 便利函数没有提供定制 Request 的机会。使用 http.NewRequest 创建请求，设置它的 Cancel 字段，然后调用 http.DefaultClient.Do(req) 来执行请求。  
 + 练习8.11：使用 8.4.4 节的 mirroredQuery 程序中的方法，实现 fetch 的一个变种，它并发请求多个 URL，当第一个响应返回的时候，取消其他的请求。
-+ TODO：练习1.11
 
 # 8.10 示例：聊天服务器
 + 练习8.12：让广播者在每一个新客户到来的时候通知当前存在的客户。这也要求 clients 集合以及 entering 和 leaving 通道记录客户的名字。
