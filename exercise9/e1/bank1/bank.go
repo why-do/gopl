@@ -7,13 +7,11 @@ var balances = make(chan int) // 接收余额
 func Deposit(amount int) { deposits <- amount }
 func Balance() int       { return <-balances }
 
-var withdraw = make(chan int) // 扣款通道
+var withdraw = make(chan int)    // 扣款通道
+var withdrawOK = make(chan bool) // 扣款结果反馈通道
 func Withdraw(amount int) bool {
-	if amount > Balance() {
-		return false
-	}
 	withdraw <- amount
-	return true
+	return <-withdrawOK
 }
 
 func teller() {
@@ -24,7 +22,12 @@ func teller() {
 			balance += amount
 		case balances <- balance:
 		case amount := <-withdraw:
-			balance -= amount
+			if balance >= amount {
+				balance -= amount
+				withdrawOK <- true
+			} else {
+				withdrawOK <- false
+			}
 		}
 	}
 }
