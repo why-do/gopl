@@ -478,5 +478,28 @@ func Extract(url string, done <-chan struct{}) ([]string, error) {
 ## 测试的技巧
 期望的情况是，当然是当取消事件到来时 main 函数可以返回，然后程序随之退出。如果发现在取消事件到来的时候 main 函数没有返回，可以执行一个 panic 调用。从崩溃的转存储信息中通常含有足够的信息来帮助我们分析，发现哪些 goroutine 还没有合适的取消。也可能是已经取消了，但是需要的时间比较长。总之，使用 panic 可以帮助查找原因。  
 
-# 镜像服务器请求资源
-TODO: 练习8.11，实现 mirroredQuery。
+# 并发请求最快的镜像资源
+下面的例子展示一个使用缓冲通道的应用。它并发地向三个**镜像地址**发请求，镜像指相同但分布在不同地理区域的服务器。它将它们的响应通过一个缓冲通道进行发送，然后只接收第一个返回的响应，因为它是最早到达的。所以 mirroredQuery 函数甚至在两个比较慢的服务器还没有响应之前返回了一个结果。（偶然情况下，会出现像这个例子中的几个 goroutine 同时在一个通道上并发发送，或者同时从一个通道接收的情况。）：
+```go
+func mirroredQuery() string {
+	responses := make(chan string, 3) // 有几个镜像，就要多大的容量，不能少
+	go func () { responses <- request("asia.gopl.io") }()
+	go func () { responses <- request("europe.gopl.io") }()
+	go func () { responses <- request("americas.gopl.io") }()
+	return <- responses // 返回最快一个获取到的请求结果
+}
+
+func request(hostname string) (response string) { return "省略获取返回的代码" }
+```
+
+## goroutine 泄露
+在上面的示例中，如果使用的是无缓冲通道，两个比较慢的 goroutine 将被卡住，因为在它们发送响应结果到通道的时候没有 goroutine 来接收。这个情况叫做 **goroutine 泄漏**。它属于一个 bug。不像回收变量，泄漏的 goroutine 不会自动回收，所以要确保 goroutine 在不再需要的时候可以自动结束。  
+
+## 请求并解析资源
+上面只是一个大致的框架，不过核心思想都在里面了。现在来完成这里的 request 请求。并且 request 里会发起 http 请求，虽然可以让每一个请求都执行完毕。但是只要第一个请求完成后，其他请求就可以终止了，现在也已经掌握了主动关闭 http 请求的办法了。  
+这里把示例的功能写的更加完整一些，用上之前的页面解析和获取 title 的部分代码。通过命令行参数提供的多个 url 爬取页面，解析页面的 title，返回第一个完成的 title。完整的代码如下：
+```go
+// exercise8/e11
+```
+这里的 request 除了返回响应消息还会返回一个错误。在 mirroredQuery 函数内需要处理这个错误，从而可以获取到第一个正确返回的响应消息。也有可能所有的请求都没有正确的返回，这里的做法也确保了所有的请求都返回错误后程序可以正常执行结束。  
+解析页面获取 title 的部分，基本参照了上面的**获取页面的title**这小节的实现。  
