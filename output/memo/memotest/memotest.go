@@ -14,5 +14,4 @@ func httpGetBody(url string) (interface{}, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-
-var HTTPGetBody = httpGetBody
+var HTTPGetBody = httpGetBody // 上面的函数不可导出，这样可以被别的包引用
