@@ -69,3 +69,48 @@ fmt.Println(1i * 1i)  // -1
 // exercise3/e7
 ```
 这里还增加一个的图形，运用牛顿法求某个函数的复数解（z^4-1=0）。原来的图形这次做成了彩图。
+
+# 图片格式转换
+image 包下有3个子包：
++ image\.gif
++ image\.jpeg
++ image\.png
+
+所以，这3种图片格式是标准库原生支持的。
+
+## 格式转换
+标准库的 image 包导出了 Decode 函数，它从 io\.Reader 读取数据，并且识别使用哪一种图像格式来编码数据，调用适当的解码器，返回 image\.Image 对象作为结果。使用 image\.Decode 可以构建一个简单的图像转换器，读取某一种格式的图像，然后输出为另外一个格式：
+```go
+// ch10/jpeg
+```
+该程序打开一个png文件，再创建一个新的jpg文件，然后进行图像格式的转换。  
+注意空白导入"image/png"。如果没有这一行，程序可以正常编译和链接，但是不能识别和解码 PNG 格式的输入：
+```
+PS H:\Go\src\gopl\ch10\jpeg> go run main.go
+jpeg: image: unknown format
+exit status 1
+PS H:\Go\src\gopl\ch10\jpeg>
+```
+这个例子里是解码png格式的图片，程序能识别png格式是因为上面的一行空导入。也可以支持其他格式，并且是同时支持的，只要多导入几个包。具体看下面的展开。  
+
+## 格式解码
+接下来解释它是如何工作的。标准库提供 GIF、PNG、JPEG 等格式的解码库，用户自己可以提供其他格式的，但是为了使可执行程序简短，除非明确需要，否则解码器不会被包含进应用程序。image\.Decode 函数查阅一个关于支持格式的表格。每一个表项由4个部分组成：
++ 格式的名字
++ 某种格式中所使用的相同的前缀字符串，用来识别编码格式
++ 一个用来解码被编码图像的函数 Decode
++ 另一个函数 DecodeConfig，它仅仅解码图像的元数据，比如尺寸和色域
+
+对于每一种格式，通常通过在其支持的包的初始化函数中来调用 image\.RegisterFormat 来向表格添加项。例如 image\.png 中的实现如下：
+```go
+package png // image/png
+
+func Decode(r io.Reader) (image.Image, error)
+func DecodeConfig(r io.Reader) (image.Config, error)
+
+const pngHeader = "\x89PNG\r\n\x1a\n"
+func init() {
+	image.RegisterFormat("png", pngHeader, Decode, DecodeConfig)
+}
+```
+这个效果就是，一个应用只需要空白导入格式化所需的包，就可以让 image\.Decode 函数具备应对格式的解码能力。  
+所以，可以多导入几个空包，这样程序就可以支持更多格式的解码了。  
