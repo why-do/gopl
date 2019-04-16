@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func TestPalindrome(t *testing.T) {
+func TestIsPalindrome(t *testing.T) {
 	var tests = []struct {
 		input string
 		want  bool
