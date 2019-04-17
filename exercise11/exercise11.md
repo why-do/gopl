@@ -6,6 +6,9 @@
 + 练习11.3：TestRandomPalindromes 函数仅测试回文字符串。编写一个随机测试用来产生并检测非回文字符串。
 + 练习11.4：修改 randomPalindrome 用来测试 IsPalindrome 函数对标点符号和空格的处理。
 
+## 11.2.5 编写有效测试
++ 练习11.5：扩展 TestSplit 函数，以使用基于表的输入和期望输出。
+
 # 11.4 Benchmark 函数
 + TODO：练习1.3
 + TODO：练习2.3、2.4、2.5，找到效率最高的计算置位总数的方法
