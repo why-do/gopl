@@ -51,3 +51,15 @@ func TestRandomPalindromes(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkIsPalindrome(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		IsPalindrome("山西悬空寺空悬西山")
+	}
+}
+
+func BenchmarkIsPalindrome2(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		IsPalindrome2("山西悬空寺空悬西山")
+	}
+}
