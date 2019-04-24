@@ -9,6 +9,20 @@ func ExampleIntSet_Len() {
 	// output: 7
 }
 
+func ExampleIntSet_Len2() {
+	var x IntSet
+	x.AddAll(100, 200, 300, 888, 1981, 18901821, 1912)
+	fmt.Println(x.Len2())
+	// output: 7
+}
+
+func ExampleIntSet_Len3() {
+	var x IntSet
+	x.AddAll(100, 200, 300, 888, 1981, 18901821, 1912)
+	fmt.Println(x.Len3())
+	// output: 7
+}
+
 func ExampleIntSet_Remove() {
 	var x IntSet
 	x.Remove(10)

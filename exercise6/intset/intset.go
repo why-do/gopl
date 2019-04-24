@@ -81,6 +81,32 @@ func (s *IntSet) Len() int {
 	return counts
 }
 
+// 返回元素个数，右移循环算法
+func (s *IntSet) Len2() int {
+	var count int
+	for _, x := range s.words {
+		for x != 0 {
+			if x & 1 == 1 {
+				count++
+			}
+			x >>= 1
+		}
+	}
+	return count
+}
+
+// 返回元素个数，快速法
+func (s *IntSet) Len3() int {
+	var count int
+	for _, x := range s.words {
+		for x != 0 {
+			x = x & (x - 1)
+			count++
+		}
+	}
+	return count
+}
+
 // 一次添加多个元素
 func (s *IntSet) AddAll(nums ...int) {
 	for _, x := range nums {

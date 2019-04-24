@@ -111,37 +111,9 @@ func changeKeyValue(m map1, k, v string) {
 ```
 
 ## 集合
-Go 没有提供集合类型，但是利用key唯一的特点，可以用map来实现这个功能。比如说字符串的集合：
 ```go
-package main
-
-import (
-	"bufio"
-	"fmt"
-	"os"
-)
-
-func main() {
-	seen := make(map[string]bool) // 字符串集合
-	input := bufio.NewScanner(os.Stdin)
-	for input.Scan() {
-		line := input.Text()
-		if !seen[line] {
-			seen[line] = true
-			fmt.Println("Set:", line)
-		}
-	}
-	if err := input.Err(); err != nil {
-		fmt.Fprintf(os.Stderr, "dedup: %v\n", err)
-		os.Exit(1)
-	}
-}
+// 这部分内容单独放到 set.md 中去了
 ```
-从标准输出获取字符串，用map来存储已经出现过的行，只有首次出现的字符串才会打印出来。  
-
-**使用空结构体作value**  
-这里使用bool来作为map的value，而bool也有true和false两种值，而实际只使用了1种值。  
-这里还可以使用空结构体（类型：struct{}、值：struct{}{}）。空结构体，没有长度，也不携带任何信息，用它可能是最合适的。但由于这种方式节约的内存很少并且语法复杂，所以一般尽量避免这样使用。  
 
 ## 使用切片做key
 切片是不能作为key的，并且切片是不可比较的，不过可以有一个间接的方法来实现切片作key。定义一个帮助函数k，将每一个key都映射到字符串：
