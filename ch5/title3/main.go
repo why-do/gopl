@@ -21,8 +21,11 @@ func forEachNode(n *html.Node, pre, post func(n *html.Node)) {
 	}
 }
 
+// soleTitle 返回文档中一个非空标题元素
+// 如果没有标题则返回错误
 func soleTitle(doc *html.Node) (title string, err error) {
 	type bailout struct{}
+	
 	defer func() {
 		switch p := recover(); p {
 		case nil:

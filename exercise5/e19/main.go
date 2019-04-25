@@ -3,14 +3,15 @@ package main
 import "fmt"
 
 func main() {
-	defer func() {
-		p := recover()
-		fmt.Println(p)
-	}()
-	noRet()
+	s := noRet()
+	fmt.Println(s)
 }
 
-func noRet() {
+func noRet() (s string) {
+	defer func() {
+		p := recover()
+		s = fmt.Sprint(p)
+	}()
 	panic("Hello")
 }
 
