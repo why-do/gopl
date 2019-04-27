@@ -29,5 +29,47 @@ func encode(buf *bytes.Buffer, v reflect.Value) error {
 			}
 		}
 		buf.WriteByte(')')
+	case reflect.Struct: // ((name value) ...)
+		buf.WriteByte('(')
+		for i := 0; i < v.NumField(); i++ {
+			if i > 0 {
+				buf.WriteByte(' ')
+			}
+			fmt.Fprintf(buf, "(%s ", v.Type().Field(i).Name)
+			if err := encode(buf, v.Field(i)); err != nil {
+				return err
+			}
+			buf.WriteByte(')')
+		}
+		buf.WriteByte(')')
+	case reflect.Map: // ((key value) ...)
+		buf.WriteByte('(')
+		for i, key := range v.MapKeys() {
+			if i > 0 {
+				buf.WriteByte(' ')
+			}
+			buf.WriteByte('(')
+			if err := encode(buf, key); err != nil {
+				return err
+			}
+			buf.WriteByte(' ')
+			if err := encode(buf, v.MapIndex(key)); err != nil {
+				return err
+			}
+			buf.WriteByte(')')
+		}
+		buf.WriteByte(')')
+	default: // float, complex, bool, chan, func, interface
+		return fmt.Errorf("unsupported type: %s", v.Type())
 	}
+	return nil
+}
+
+// Marshal 把 Go 的值编码为 S 表达式的形式
+func Marshal(v interface{}) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	if err := encode(buf, reflect.ValueOf(v)); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
