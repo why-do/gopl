@@ -143,7 +143,44 @@ Parse 函数，递归地将字符串解析为表达式，下面是完整的代�
 ```go
 // output/expression_evaluator/eval/parse.go
 ```
-整体的逻辑都比较难理解。parseBinary 函数是负责解析二元表达式的，其中包括了对运算符优先级的处理。
+整体的逻辑都比较难理解。parseBinary 函数是负责解析二元表达式的，其中包括了对运算符优先级的处理（*逻辑比较难懂，自己想不出来，看也没完全看懂，以后有类似的实现或许可以借鉴*）。  
 
 ## 测试函数
-下面的 TestEval 函数用于测试 evaluator 
+下面的 TestEval 函数用于测试求值器，它使用 testing 包，使用**基于表**的测试方式。表格中定义了三个表达式并为每个表达式准备了不同的上下文。第一个表达式用于根据圆面积A求半径，第二个用于计算两个变量x和y的立方和，第三个把华氏温度F转为摄氏温度：
+```go
+// output/expression_evaluator/eval/eval_test.go
+```
+对于表格中的每一行记录，先解析表达式，在上下文中求值，再输出表达式。启用 \-v 选项查看测试的输出：
+```
+PS G:\Steed\Documents\Go\src\gopl\output\expression_evaluator\eval> go test -v
+=== RUN   TestEval
+
+sqrt(A / pi)
+        map[A:87616 pi:3.141592653589793] => 167
+
+pow(x, 3) + pow(y, 3)
+        map[x:12 y:1] => 1729
+        map[x:9 y:10] => 1729
+
+5 / 9 * (F - 32)
+        map[F:-40] => -40
+        map[F:32] => 0
+        map[F:212] => 100
+--- PASS: TestEval (0.00s)
+PASS
+ok      gopl/output/expression_evaluator/eval   0.329s
+PS G:\Steed\Documents\Go\src\gopl\output\expression_evaluator\eval>
+```
+
+## check 方法
+到目前为止，所有的输入都是合法的，但是并不是总能如此。即使在解释性语言中，通过语法检查来发现**静态**错误（即不用运行程序也能检测出来的错误）也是很常见的。通过分离静态检查和动态检查，可以更快发现错误，也可以只在运行前检查一次，而不用在表达式求值时每次都检查。  
+现在就给 Expr 加上一个 Check 方法，用于在表达式语法树上检查静态错误，vars 参数将稍后解释：
+```go
+// Expr: 算术表达式
+type Expr interface {
+	// 返回表达式在 env 上下文下的值
+	Eval(env Env) float64
+	// Check 方法报告表达式中的错误，并把表达式中的变量加入 Vars 中
+	Check(vars map[Var]bool) error
+}
+```
