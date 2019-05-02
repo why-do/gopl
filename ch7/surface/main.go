@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-import "gopl/ch7/eval"
+import "gopl/output/expression_evaluator/eval"
 
 const (
 	width, height = 600, 320            // canvas size in pixels

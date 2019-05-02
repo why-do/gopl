@@ -6,7 +6,7 @@ import (
 )
 
 func (v Var) Eval(env Env) float64 {
-	return env[v]
+	return env[v] // 如果查询不到变量名，则返回类型的零值，就是0
 }
 
 func (l literal) Eval(_ Env) float64 {
