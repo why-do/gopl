@@ -8,3 +8,8 @@
 + 练习12.5：改写 encode 函数，从输出 S 表达式改为输出 JSON。使用标准库的解码器 json.Unmarshal 来测试编码器。
 + 练习12.6：改写 encode 函数，优化输出，如果字段值是其类型的零值则不须编码。
 + 练习12.7：参考 json\.encoder （参见 4.5 节）的风格，创建一个 S 表达式编码器的流式 API。
+
+# 12.6 示例：解码 S 表达式
++ 练习12.8：类似于 json\.UnMarshal 函数，sexpr\.Unmarshal 函数在解码之前就需要完善的字节 slice。仿照 json\.Decoder，定义一个 sexpr\.Decoder 类型，允许从一个 io\.Reader 接口解码一系列的值。使用这个新类型来重新实现 sexpr\.Unmarshal。
++ 练习12.9：仿照 xml\.Decoder（参考 7.14 节），写一个基于标记的 S 表达式解码 API。你需要5个类型的标记：Symbol、String、Int、StartList 和 EndList。
++ 练习12.10：扩展 sexpr\.Unmarshal，以处理练习 12.3 中按你的答案编码的布尔值、浮点数和接口。（提示：为了解码接口，你需要一个 map，其中包含每个支持类型从名字到 reflect\.Type 的映射。）
