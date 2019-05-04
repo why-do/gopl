@@ -58,7 +58,7 @@ n, err := io.Copy(ioutil.Discard, resp.Body)
 ```
 
 # 向 io\.Writer 写入字符串(7.12)
-这里要讲的是通过类型断言来查询特性，下面是一个标准库中使用的示例。并且，**这个是向 io\.Writer 写入字符串的推荐方法。**  
+这里要讲的是通过接口类型断言来查询特性，下面是一个标准库中使用的示例。并且，**这个是向 io\.Writer 写入字符串的推荐方法。**  
 下面定义一个方法，往 io\.Writer 接口接入字符串信息：
 ```go
 func writeMsg(w io.Writer, msg string) error {
