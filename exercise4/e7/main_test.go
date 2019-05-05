@@ -8,7 +8,7 @@ import (
 
 var tests = []struct {
 	input string
-	want string
+	want  string
 }{
 	{"abc", "cba"},
 	{"123", "321"},
@@ -51,7 +51,19 @@ func randomStr(rng *rand.Rand) string {
 	n := rng.Intn(25) // 随机字符串最大长度24
 	runes := make([]rune, n)
 	for i := 0; i < n; i++ {
-		r := rune(rng.Intn(0x1000)) // 随机字符最大是 `\u0999
+		var r rune
+		switch rune(rng.Intn(6)) {
+		case 0: // ASCII 字母，1个字节
+			r = rune(rng.Intn(0x4B) + 0x30)
+		case 1: // 希腊字母，2个字节
+			r = rune(rng.Intn(57) + 0x391)
+		case 2: // 日文
+			r = rune(rng.Intn(0xBF) + 0x3041)
+		case 3: // 韩文
+			r = rune(rng.Intn(0x2BA4) + 0xAC00)
+		case 4, 5, 6: // 中文
+			r = rune(rng.Intn(0x4E00) + 0x51D6)
+		}
 		runes[i] = r
 	}
 	return string(runes)
@@ -84,18 +96,22 @@ func TestRandomReverse(t *testing.T) {
 // 效率测试
 func BenchmarkReverse(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		reverse([]byte("abc你好！大千世界,12无限，。Over！？..."))
+		for _, test := range tests {
+			reverse([]byte(test.input))
+		}
 	}
 }
 
 func BenchmarkReverse_rune(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		reverse_rune([]byte("abc你好！大千世界,12无限，。Over！？..."))
-	}
+		for _, test := range tests {
+			reverse_rune([]byte(test.input))
+		}	}
 }
 
 func BenchmarkReverse_byte(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		reverse_byte([]byte("abc你好！大千世界,12无限，。Over！？..."))
-	}
+		for _, test := range tests {
+			reverse_byte([]byte(test.input))
+		}	}
 }
