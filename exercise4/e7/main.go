@@ -5,6 +5,17 @@ import (
 	"unicode/utf8"
 )
 
+// 先转成字符切片，然后再用切片的反转的方法，最后更新参数指向的底层数组
+func reverse_rune(slice []byte) {
+	r := []rune(string(slice))
+	for i, j := 0, len(r)-1; i < j; i, j = i+1, j-1 {
+        r[i], r[j] = r[j], r[i]
+	}
+	for i := range slice {
+		slice[i] = []byte(string(r))[i]
+	}
+}
+
 // 逻辑简单，但是算法复杂度应该太高了，不过正好可以用来做验证
 func reverse_byte(slice []byte) {
 	for l := len(slice); l > 0; {
