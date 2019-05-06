@@ -18,9 +18,9 @@ func Unpack(req *http.Request, ptr interface{}) error {
 	fields := make(map[string]reflect.Value)
 	v := reflect.ValueOf(ptr).Elem() // reflect.ValueOf(&x).Elem() 获得任意变量 x 可寻址的值，用于设置值。
 	for i := 0; i < v.NumField(); i++ {
-		fieldInfo := v.Type().Field(i) // a reflect.StructField
-		tag := fieldInfo.Tag           // a reflect.Structtag
-		name := tag.Get("http")
+		fieldInfo := v.Type().Field(i) // a reflect.StructField，提供了每个字段的名称、类型以及一个可选的标签
+		tag := fieldInfo.Tag           // a reflect.Structtag，底层类型为字符串，提供了一个 Get 方法，下一行就用到了
+		name := tag.Get("http")        // Get 方法用于解析和提取对于一个特定 key 的子串
 		if name == "" {
 			name = strings.ToLower(fieldInfo.Name)
 		}
