@@ -26,6 +26,13 @@ func search(resp http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
+	fmt.Println("http://localhost:8000/search")                                 // Search: {Labels:[] MaxResults:10 Exact:false}
+	fmt.Println("http://localhost:8000/search?l=golang&l=gopl")                 // Search: {Labels:[golang gopl] MaxResults:10 Exact:false}
+	fmt.Println("http://localhost:8000/search?l=gopl&x=1")                      // Search: {Labels:[gopl] MaxResults:10 Exact:true}
+	fmt.Println("http://localhost:8000/search?x=true&max=100&max=200&l=golang") // Search: {Labels:[golang] MaxResults:200 Exact:true}
+	fmt.Println("http://localhost:8000/search?q=hello")                         // Search: {Labels:[] MaxResults:10 Exact:false}  # 不存在的参数会忽略
+	fmt.Println("http://localhost:8000/search?x=123")                           // x: strconv.ParseBool: parsing "123": invalid syntax  # x 提供的参数解析错误
+	fmt.Println("http://localhost:8000/search?max=lots")                        // max: strconv.ParseInt: parsing "lots": invalid syntax  # max 提供的参数解析错误
 	http.HandleFunc("/search", search)
-	log.Fatal(http.ListenAndServe(":12345", nil))
+	log.Fatal(http.ListenAndServe(":8000", nil))
 }
