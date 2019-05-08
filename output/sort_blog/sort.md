@@ -145,7 +145,7 @@ sort.Sort(customSort{tracks, func(x, y *Track) bool {
 }})
 ```
 
-## 检查排序
+## 检查是否有序
 一个长度为 n 的序列进行排序需要 O(n logn) 次比较操作，而判断一个序列是否已经排好序值需要最多 (n-1) 次比较。sort 包提供的 IsSorted 函数可以判断序列是否是排好序的。
 ```go
 values := []int{3, 1, 4, 1}
