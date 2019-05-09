@@ -10,7 +10,7 @@
 请求的 URL 的路径就是 `r.URL.Path`。  
 
 ## 多个处理函数
-为服务器添加功能很容易。一个有用的扩展是一个特定的 URL，下面的版本对 \/count 请求会有特殊的响应：
+为服务器添加功能很容易。一个有用的扩展是一个特定的 URL，下面的版本对 /count 请求会有特殊的响应：
 ```go
 // ch1/server2
 ```
@@ -56,11 +56,11 @@ ListenAndServe 函数，这里关注接口，只看函数的签名，忽略函�
 ```
 
 ## 添加功能
-上面的示例中，服务器只能列出所有的商品，并且完全不管 URL，对每个请求都是同样的功能。一般的 Web 服务会定义过个不同的 URL，每个触发不同的行为。把现有的功能的 URL 设置为 \/list，再加上另一个 \/price 用来显示单个商品的价格，商品可以在请求参数中指定，比如：`/price?item=socks`：
+上面的示例中，服务器只能列出所有的商品，并且完全不管 URL，对每个请求都是同样的功能。一般的 Web 服务会定义过个不同的 URL，每个触发不同的行为。把现有的功能的 URL 设置为 /list，再加上另一个 /price 用来显示单个商品的价格，商品可以在请求参数中指定，比如：`/price?item=socks`：
 ```go
 // ch7/http2
 ```
-现在，出差函数基于 URL 的路径部分（req.URL.Path）来决定执行哪部分逻辑。  
+现在，处理函数基于 URL 的路径部分（req.URL.Path）来决定执行哪部分逻辑。  
 
 **返回错误页面 404**  
 如果处理函数不能识别这个路径，那么它通过调用`w.WriteHeader(http.StatusNotFound)`来返回一个 HTTP 错误。这个调用必须在网 w 中写入内容之前执行。这里还可以使用 http.Error 这个工具函数了达到同样的目的：
@@ -70,16 +70,16 @@ http.Error(w, msg, http.StatusNotFound) // 404
 ```
 
 **Get请求参数**  
-对应 \/price 的场景，它调用了 URL 的 Query 方法，把 HTTP 的请求参数解析为一个map，或者更精确来讲，解析为一个 multimap，由 net\/url 包的 url\.Values 类型实现。这里的 url\.Values 是一个 map 映射：
+对应 /price 的场景，它调用了 URL 的 Query 方法，把 HTTP 的请求参数解析为一个map，或者更精确来讲，解析为一个 multimap，由 net/url 包的 url\.Values 类型实现。这里的 url\.Values 是一个 map 映射：
 ```go
 type Values map[string][]string
 ```
 它的 value 是一个 字符串切片，这里用了 Get 方法，只会提取切片的第一个值。如果是要提取某个 key 所有的值，简单的通过 map 的 key 提取 value 应该就好了。  
 
-## 优化功能添加
-如果要继续给 ServeHTTP 方法添加功能，应当把每部分逻辑分到独立的函数或方法。net\/http 包提供了一个**请求多工转发器 ServeMux**，用来简化 URL 和处理程序之间的关联。一个 ServeMux 把多个 http\.Handler 组合成单个 http.Handler。在这里，可以看到满足同一个接口的多个类型是可以互相替代的，Web 服务器可以把请求分发到任意一个 http\.Handlr，而不用管后面具体的类型。  
+## 优化添加功能
+如果要继续给 ServeHTTP 方法添加功能，应当把每部分逻辑分到独立的函数或方法。net/http 包提供了一个**请求多工转发器 ServeMux**，用来简化 URL 和处理程序之间的关联。一个 ServeMux 把多个 http\.Handler 组合成单个 http.Handler。在这里，可以看到满足同一个接口的多个类型是可以互相替代的，Web 服务器可以把请求分发到任意一个 http\.Handlr，而不用管后面具体的类型。  
 对于更加复杂的应用，多个 ServeMux 会组合起来，用来处理更复杂的分发需求。Go 语言并不需要一个类似于 Python 的 Django 那样的权威 Web 框架。因为 Go 语言的标准库提供的基础单元足够灵活，以至于那样的框架通常不是必须的。进一步来了讲，尽管框架在项目初期带来很多便利，但框架带来了额外复杂性，增加长时间维护的难度。*不过这样的Web框架也是有的，比如：beego。*
-将程序修改为使用 ServeMux，用于将 \/list、\/prics 这样的 URL 和对应的处理程序关联起来，这些处理程序也已经拆分到不同的方法中。最后作为主处理程序在 ListenAndServe 调用中使用这个 ServeMux：
+将程序修改为使用 ServeMux，用于将 /list、/prics 这样的 URL 和对应的处理程序关联起来，这些处理程序也已经拆分到不同的方法中。最后作为主处理程序在 ListenAndServe 调用中使用这个 ServeMux：
 ```go
 // ch7/http3
 ```
@@ -112,7 +112,7 @@ mux.HandleFunc("/price", db.price)
 
 **全局 ServeMux 实例**  
 通过 ServeMux，如果需要有两个不同的 Web 服务，在不同的端口监听。那么就定义不同的 URL，分发到不同的处理程序。只须简单地构造两个 ServeMux，再调用一次 ListenAndServe 即可（*建议并发调用*）。不过很多时候一个 Web 服务足够了，另外也不需要多个 ServeMux 实例。对于这种简单的应用场景，建议用下面的简化的调用方法。  
-net\/http 包还提供了一个全局的 ServeMux 实例 DefaultServeMux，以及包级别的注册函数 http.Handle 和 http.HandleFunc。要让 DefaultServeMux 作为服务器的主处理程序，无须把它传给 ListenAndServe，直接传nil即可。文章开头的例子里就是这么用的。
+net/http 包还提供了一个全局的 ServeMux 实例 DefaultServeMux，以及包级别的注册函数 http.Handle 和 http.HandleFunc。要让 DefaultServeMux 作为服务器的主处理程序，无须把它传给 ListenAndServe，直接传nil即可。文章开头的例子里就是这么用的。
 服务器的主函数可以进一步简化：
 ```go
 func main() {
