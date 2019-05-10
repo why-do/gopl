@@ -13,6 +13,7 @@ func (p *People) Greet() {
 var p1 = People{"Adam"}
 
 func init() {
+	fmt.Print("init: ")
 	p1.Greet()
 }
 
