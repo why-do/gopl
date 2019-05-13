@@ -39,9 +39,11 @@ func httpGetBody(url string) (interface{}, error) {
 // out/memo/memo1/memo.go
 ```
 Memo 实例包含了被记忆的函数 f （类型为Func），以及缓存，类型为一个 key 为字符串，value 为 result 的 map。每个 result 都是调用 f 产生的结果：一个值和一个错误，在设计的推进过程中会展示 Memo 的几种变体，但所有变体都会遵守这些基本概念。  
+
+**测试验证**  
 下面的例子展示了如何使用 Memo。下面是完整的测试源码文件，包括上一小节写的被测试的函数，以及一串 URL。每个 URL 会发起两次请求。对于每个 URL，首先调用 Get，打印延时和返回的数据长度：
 ```go
-// out/memo/memo1/memo.go
+// out/memo/memo1/memo_testtest.go
 ```
 这里使用 testing 包系统的测试效果。上面有两个测试函数，先只用 TestSequential 进行测试，串行的发起请求。从下面的测试结果看，每一个 URL 第一次调用都会消耗一定的时间，但对 URL 第二次的请求会立刻返回结果：
 ```
@@ -61,6 +63,8 @@ ok      gopl/output/memo/memo1  2.063s
 PS H:\Go\src\gopl\output\memo\memo1>
 ```
 默认在测试成功的时候不打印这类日志，不过可以加上 -v 参数在成功时也打印测试日志。  
+
+**并行测试**  
 这次测试中所有的 Get 都是串行的。因为 HTTP 请求通过并发来改善的空间很大，所以这次使用 TestConcurrent 进行测试，让所有的请求并发进行。这个测试要使用 sync\.WaitGroup 等待所有的请求完成后再返回结果。  
 这次的测试结果基本上都是缓存无效的情况，不过偶尔还会出现无法正常运行的情况。除了缓存无效，可能还会有缓存命中后返回错误结果，甚至崩溃：
 ```
@@ -79,6 +83,8 @@ PASS
 ok      gopl/output/memo/memo1  2.346s
 PS H:\Go\src\gopl\output\memo\memo1>
 ```
+
+**加上竞态检测器进行并行测试**  
 更糟糕的是，多数时候这样都能正常运行，所以甚至很难注意到这样并发调用是有问题的。但是如果加上 -race 标志后再运行，那么竞态检测器就会输出如下的报告：
 ```
 PS H:\Go\src\gopl\output\memo\memo1> go test -run=TestConcurrent -v -race
@@ -176,7 +182,7 @@ func httpGetBody(url string) (interface{}, error) {
 ```go
 // out/memo/memo4/memo.go
 ```
-关于这里的 map 是否包含某个元素的判断，之前都是返回两个值，通过ok来判断。之前的示例中，map的元素是结构体，由于结构体类型的零值不是nil，通过ok来判断比较好。这里的元素类型是结构体指针，当然可以继续使用ok来判断。不同现在是指针类型了，零值是nil也不会和非零值的情况搞混，所以也可以直接通过nil来判断。  
+关于这里的 map 是否包含某个元素的判断，之前都是返回两个值，通过ok来判断。之前的示例中，map的元素是结构体，由于结构体类型的零值不是nil，通过ok来判断比较好。这里的元素类型是结构体指针，当然可以继续使用ok来判断。不过现在是指针类型了，零值是nil也不会和非零值的情况搞混，所以也可以直接通过nil来判断。  
 现在调用 Get 会获取锁，然后去 map 中查询，如果没有找到，就直接分配并插入一个新的值，然后释放锁。之后其他 goroutine 来查询的时候，会发现值存在，那么就直接获取到 map 的值，然后释放锁。  
 map 里的值并不是 Get 返回的数据，而是数据是否准备好的通道，和存放数据的字段。此时数据可能还没准备好，数据是否准备好，可以从 ready 通道进行判断。对 ready 通道的读取操作，会在数据没有准备好的时候一直阻塞。一旦数据准备好了，就会关闭 ready 通道，所有从 ready 通道的读取操作就会立刻返回。这是利用通道进行广播的方式。所以查询 map 后获取值的步骤就是先读取 ready 通道等待，一旦通道的读取返回，就表示数据已经准备好了，此时就可以去读取字段 res 里的内容并返回。  
 注意，entry 中的变量 e\.res\.value 和 e\.res\.err 被多个 goroutine 共享。创建 entry 的 goroutine 会对这两个变量的值进行设置，其他 goroutine 在收到数据准备完毕的广播后才会开始读取这两个变量。尽管被多个 goroutine 访问，但是此处不需要加锁。ready 通道的关闭先于其他 goroutine 收到广播事件，所以第一个 goroutine 对变量的写入也先于后续多个 goroutine 的读取事件。这种情况下数据竞态不存在。  

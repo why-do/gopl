@@ -272,10 +272,175 @@ c.Value = 42
 (*(*(*(*c.Tail).Tail).Tail).Tail).Value = 42
 ```
 很多 Go 程序都会包含一些循环引用的数据。让 Display 支持这类成环的数据结构需要些技巧，需要额外记录迄今访问的路径，相应会带来成本。  
-一个通用的解决方案需要 unsafe 语言特性，另一篇的另外一个示例中，会有对循环引用的处理：  
-TODO： 13.3 示例：深度相等 的文章地址  
+一个通用的解决方案需要 unsafe 语言特性，在之后的 unsafe 包的示例中，会有对循环引用的处理。  
 
 还有一个相对比较容易实现的思路，限制递归的层数。这个不是那么通用，也不是很完美。但是是不借助 unsafe 而可以实现的。  
 
 循环引用在 fmt\.Sprint 中不构成一个大问题，因为它很少尝试输出整个结构体。比如，当遇到一个指针时，就只简单地输出指针的数字值，这样就不是引用了。但如果遇到一个 slice 或 map 包含自身，它还是会卡住，只是不值得为了这种罕见的案例而去承担处理循环引用的成本。  
 
+# 12.4 示例：编码 S表达式
+Display 现在可以作为一个显示结构化数据的调试工具，只要再稍加修改，就可以用它来对任意 Go 对象进行**编码或编排**，使之成为适用于进程间通信的消息。  
+Go 的标准库已经支持了各种格式，包括：JSON、XML、ASN\.1。另外还有一种广泛使用的格式是 Lisp 语言中的 S表达式。与其他格式不同的是 S表达式还没被 Go 标准库支持，主要是因为它没有一个公认的标准规范。  
+接下来就要定义一个包用于将任意的 Go 对象编码为 S表达式，它需要支持以下的结构：
+```
+42          integer
+"hello"     string (带有Go风格的引号)
+foo         symbol (未用引号括起来的名字)
+(1 2 3)     list   (括号包起来的0个或多个元素)
+```
+布尔值一般用符号 t 表示真，用空列表 () 或者符号 nil 表示假，但为了简化，这里的实现直接忽略了布尔值。通道和函数也被忽略了，因为它们的状态对于反射来说是不透明的。这里的实现还忽略了实数、复数和接口。（部分实现可以后续进行添加完善。）  
+
+## 编码方式
+将 Go 语言的类型编码为S表达式的方法如下：
++ 整数和字符串以显而易见的方式编码
++ 空值编码为nil符号
++ 数组和slice被编码为列表
++ 结构体编码为一个字段绑定（field binding）的列表，每个字段绑定都是一个包含两个元素的列表。
++ map也编码为键值对的列表。按照传统，S表达式使用形式为 (key . value) 的单个结构单元（cons cell）来表示key/value对。但是为了简化解码过程，示例的实现中是没有加 "." 的。
+
+## 编码器实现
+编码用单个递归调用函数 encode 来实现。它的结构上域上一节的 Display 在本质上是一致的：
+```go
+package sexpr
+
+import (
+	"bytes"
+	"fmt"
+	"reflect"
+)
+
+func encode(buf *bytes.Buffer, v reflect.Value) error {
+	switch v.Kind() {
+	case reflect.Invalid:
+		buf.WriteString("nil")
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		fmt.Fprintf(buf, "%d", v.Int())
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		fmt.Fprintf(buf, "%d", v.Uint())
+	case reflect.String:
+		fmt.Fprintf(buf, "%q", v.String())
+	case reflect.Ptr:
+		return encode(buf, v.Elem())
+	case reflect.Array, reflect.Slice: // (value ...)
+		buf.WriteByte('(')
+		for i := 0; i < v.Len(); i++ {
+			if i > 0 {
+				buf.WriteByte(' ')
+			}
+			if err := encode(buf, v.Index(i)); err != nil {
+				return err
+			}
+		}
+		buf.WriteByte(')')
+	case reflect.Struct: // ((name value) ...)
+		buf.WriteByte('(')
+		for i := 0; i < v.NumField(); i++ {
+			if i > 0 {
+				buf.WriteByte(' ')
+			}
+			fmt.Fprintf(buf, "(%s ", v.Type().Field(i).Name)
+			if err := encode(buf, v.Field(i)); err != nil {
+				return err
+			}
+			buf.WriteByte(')')
+		}
+		buf.WriteByte(')')
+	case reflect.Map: // ((key value) ...)
+		buf.WriteByte('(')
+		for i, key := range v.MapKeys() {
+			if i > 0 {
+				buf.WriteByte(' ')
+			}
+			buf.WriteByte('(')
+			if err := encode(buf, key); err != nil {
+				return err
+			}
+			buf.WriteByte(' ')
+			if err := encode(buf, v.MapIndex(key)); err != nil {
+				return err
+			}
+			buf.WriteByte(')')
+		}
+		buf.WriteByte(')')
+	default: // float, complex, bool, chan, func, interface
+		return fmt.Errorf("unsupported type: %s", v.Type())
+	}
+	return nil
+}
+
+// Marshal 把 Go 的值编码为 S 表达式的形式
+func Marshal(v interface{}) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	if err := encode(buf, reflect.ValueOf(v)); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+```
+Marshal 函数把上面的编码器封装成一个 API，它类似于其他 encoding/... 包里的 API。  
+继续用上一节验证 Display 的结构体来应用到这里：
+```go
+package main
+
+import (
+	"fmt"
+	"gopl/ch12/sexpr"
+	"os"
+)
+
+type Movie struct {
+	Title, Subtitle string
+	Year            int
+	// Color           bool
+	Actor           map[string]string
+	Oscars          []string
+	Sequel          *string
+}
+
+func main() {
+	strangelove := Movie{
+		Title:    "Dr. Strangelove",
+		Subtitle: "How I Learned to Stop Worrying and Love the Bomb",
+		Year:     1964,
+		// Color:    false,
+		Actor: map[string]string{
+			"Dr. Strangelove":            "Peter Sellers",
+			"Grp. Capt. Lionel Mandrake": "Peter Sellers",
+			"Pres. Merkin Muffley":       "Peter Sellers",
+			"Gen. Buck Turgidson":        "George C. Scott",
+			"Brig. Gen. Jack D. Ripper":  "Sterling Hayden",
+			`Maj. T.J. "King" Kong`:      "Slim Pickens",
+		},
+
+		Oscars: []string{
+			"Best Actor (Nomin.)",
+			"Best Adapted Screenplay (Nomin.)",
+			"Best Director (Nomin.)",
+			"Best Picture (Nomin.)",
+		},
+	}
+
+	b, err := sexpr.Marshal(strangelove)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sexpr.Marshal err: %v", err)
+	}
+	fmt.Println(string(b))
+}
+```
+
+由于现在不支持布尔值，所以会返回错误：
+```
+PS H:\Go\src\gopl\ch12\sexpr_demo> go run main.go
+sexpr.Marshal err: unsupported type: bool[]
+```
+
+去掉结构体和数据中的Color字段后就正常了：
+```
+PS H:\Go\src\gopl\ch12\sexpr_demo> go run main.go
+((Title "Dr. Strangelove") (Subtitle "How I Learned to Stop Worrying and Love the Bomb") (Year 1964) (Actor (("Dr. Strangelove" "Peter Sellers") ("Grp. Capt. Lionel Mandrake" "Peter Sellers") ("Pres. Merkin Muffley" "Peter Sellers") ("Gen. Buck Turgidson" "George C. Scott") ("Brig. Gen. Jack D. Ripper" "Sterling Hayden") ("Maj. T.J. \"King\" Kong" "Slim Pickens"))) (Oscars ("Best Actor (Nomin.)" "Best Adapted Screenplay (Nomin.)" "Best Director (Nomin.)" "Best Picture (Nomin.)")) (Sequel nil))
+PS H:\Go\src\gopl\ch12\sexpr_demo>
+```
+输出的内容非常紧凑，不适合阅读，不过作为格式化的编码已经实现了。*如果要输出一个带缩进和换行的美化的格式，要重新实现一个 encode 函数。*  
+与 fmt\.Print、json.Marshal、Display 这些一样，sexpr\.Marshal 在遇到循环引用的数据时也会无限循环。  
+
+接下来还可以继续实现一个解码器。不过在那之前，还要先了解一下如何用反射来更新程序中的变量。  

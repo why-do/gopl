@@ -57,8 +57,8 @@ call 方法先对 pow、sin、sqrt 函数的参数求值，再调用 math 包中
 ## Parse函数
 要验证 Eval 方法，首先需要得到对象，然后调用对像的 Eval 方法。而对象需要通过解析字符串来获取，这就需要一个 Parse 函数。  
 
-**text\/scanner 包的使用**  
-词法分析器 lexer 使用 text\/scanner 包提供的扫描器 Scanner 类型来把输入流分解成一系列的标记（token），包括注释、标识符、字符串字面量和数字字面量。扫描器的 Scan 方法将提前扫描并返回下一个标记（类型为 rune）。大部分标记（比如'('）都只包含单个rune，但 text\/scanner 包也可以支持由多个字符组成的记号。调用 Scan 会返回标记的类型，调用 TokenText 则会返回标记的文本。  
+**text/scanner 包的使用**  
+词法分析器 lexer 使用 text/scanner 包提供的扫描器 Scanner 类型来把输入流分解成一系列的标记（token），包括注释、标识符、字符串字面量和数字字面量。扫描器的 Scan 方法将提前扫描并返回下一个标记（类型为 rune）。大部分标记（比如'('）都只包含单个rune，但 text/scanner 包也可以支持由多个字符组成的记号。调用 Scan 会返回标记的类型，调用 TokenText 则会返回标记的文本。  
 因为每个解析器可能需要多次使用当前的记号，但是 Scan 会一直向前扫描，所以把扫描器封装到一个 lexer 辅助类型中，其中保存了 Scan 最近返回的标记。下面是一个简单的用法示例：
 ```go
 package main
