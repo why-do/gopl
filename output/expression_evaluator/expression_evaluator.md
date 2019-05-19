@@ -47,7 +47,7 @@ Var 的 Eval 方法从上下文中查询结果，如果变量不存在，则会�
 literal 的 Eval 方法直接返回本身的值。  
 unbary 的 Eval 方法首先对操作数递归求值，然后应用 op 操作符。  
 binary 的 Eval 方法的处理逻辑和 unbary 一样。  
-call 方法先对 pow、sin、sqrt 函数的参数求值，再调用 math 包中的对应函数。  
+call 的 Eval 方法先对 pow、sin、sqrt 函数的参数求值，再调用 math 包中的对应函数。  
 ```go
 // output/expression_evaluator/eval/eval.go
 ```
