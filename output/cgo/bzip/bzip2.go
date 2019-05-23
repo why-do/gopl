@@ -38,7 +38,7 @@ func (w *writer) Write(data []byte) (int, error) {
 	if w.stream == nil {
 		panic("closed")
 	}
-	var total int // uncompressed bytes written
+	var total int // 写入的未压缩字节数
 
 	for len(data) > 0 {
 		inlen, outlen := C.uint(len(data)), C.uint(cap(w.outbuf))
@@ -54,8 +54,8 @@ func (w *writer) Write(data []byte) (int, error) {
 	return total, nil
 }
 
-// Close flushes the compressed data and closes the stream.
-// It does not close the underlying io.Writer.
+// Close 方法清空压缩的数据并关闭流
+// 它不会关闭底层的 io.Writer
 func (w *writer) Close() error {
 	if w.stream == nil {
 		panic("closed")

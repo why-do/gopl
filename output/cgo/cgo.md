@@ -29,7 +29,23 @@ bzip2 算法基于优雅的 Burrows-Wheeler 变换，它和 gzip 相比速度要
 可以在Go代码中直接调用BZ2_bzCompressInit和BZ2_bzCompressEnd。  
 但是对于BZ2_bzCompress，我们将定义一个C语言的包装函数，用它完成真正的工作。下面是C代码，和其他Go文件放在同一个包下：
 ```c
-// cgo/bzip/bzip2.c
+// bzip 包中的文件 bzip2.c
+
+// 对 libbzip2 的简单包装，适合 cgo 使用
+#include <bzlib.h>
+
+int bz2compress(bz_stream *s, int action,
+                char *in, unsigned *inlen, char *out, unsigned *outlen) {
+  s->next_in = in;
+  s->avail_in = *inlen;
+  s->next_out = out;
+  s->avail_out = *outlen;
+  int r = BZ2_bzCompress(s, action);
+  *inlen -= s->avail_in;
+  *outlen -= s->avail_out;
+  s->next_in = s->next_out = NULL;
+  return r;
+}
 ```
 
 **安装gcc**  
@@ -43,6 +59,8 @@ exec: "gcc": executable file not found in %PATH%
 然后是Go代码，这里只是源码文件开头的部分，第一部分如下所示。  
 声明 import "C" 很特别， 并没有这样的一个包，但是这会让编译程序在编译之前先运行cgo工具：
 ```go
+// bzip 包中的文件 bzip2.go 的第一部分
+
 // 包 bzip 封装了一个使用 bzip2 压缩算法的 writer (bzip.org).
 package bzip
 
@@ -86,3 +104,103 @@ func NewWriter(out io.Writer) io.WriteCloser {
 NewWriter 调用C函数 BZ2_bzCompressInit 来初始化流的缓冲区。在 writer 结构体中还包含一个额外的缓冲区用来耗尽解压缩器的输出缓冲区。  
 
 ## Write方法
+下面所示的 Write 方法将未解压的数据写入压缩器中，然后在一个循环中调用 bz2compress 函数，直到所有的数据压缩完毕。Go程序可以访问C的类型（比如 bz_stream、char 和 uint），C的函数（比如 bz2compress），甚至是类似C的预处理宏的对象（比如 BZ_RUN），这些都通过 C.x 的方式来访问。即使类型 C.unit 和 Go 的 uint 长度相同，它们的类型也是不同的：
+```go
+// bzip 包中的文件 bzip2.go 的第二部分
+
+func (w *writer) Write(data []byte) (int, error) {
+	if w.stream == nil {
+		panic("closed")
+	}
+	var total int // 写入的未压缩字节数
+
+	for len(data) > 0 {
+		inlen, outlen := C.uint(len(data)), C.uint(cap(w.outbuf))
+		C.bz2compress(w.stream, C.BZ_RUN,
+			(*C.char)(unsafe.Pointer(&data[0])), &inlen,
+			(*C.char)(unsafe.Pointer(&w.outbuf)), &outlen)
+		total += int(inlen)
+		data = data[inlen:]
+		if _, err := w.w.Write(w.outbuf[:outlen]); err != nil {
+			return total, err
+		}
+	}
+	return total, nil
+}
+```
+每一次的迭代首先计算传说数据 data 剩余的长度以及输出缓冲 w\.outbuf 的容量。然后把这两个值的地址以及 data 和 w\.outbuf 的地址都传递给 bz2compress 函数。两个长度信息传地址而不传值，这样C函数就可以更新这两个值。这两个值记录的分别是已压缩的数据和压缩后数据的大小。然后把每块压缩后的数据写入底层的 io\.Writer（w\.w\.Write方法）。  
+
+## Close方法
+Close方法和Write方法结构类似，通过一个循环将剩余的压缩后的数据从输出缓冲区写入底层：
+```go
+// bzip 包中的文件 bzip2.go 的第三部分
+
+// Close 方法清空压缩的数据并关闭流
+// 它不会关闭底层的 io.Writer
+func (w *writer) Close() error {
+	if w.stream == nil {
+		panic("closed")
+	}
+	defer func() {
+		C.BZ2_bzCompressEnd(w.stream)
+		C.bz2free(w.stream)
+		w.stream = nil
+	}()
+	for {
+		inlen, outlen := C.uint(0), C.uint(cap(w.outbuf))
+		r := C.bz2compress(w.stream, C.BZ_FINISH, nil, &inlen,
+			(*C.char)(unsafe.Pointer(&w.outbuf)), &outlen)
+		if _, err := w.w.Write(w.outbuf[:outlen]); err != nil {
+			return err
+		}
+		if r == C.BZ_STREAM_END {
+			return nil
+		}
+	}
+}
+```
+压缩完成后，Close 方法最后会调用 C\.BZ2_bzCompressEnd 来释放流缓冲区，这写语句写在 defer 中来确保所有路径返回后都会释放资源。这个时候，w\.stream 指针就不能安全地解引用了，要把它设置为 nil，并且在方法调用的开头添加显式的 nil 检查。这样如果用户在 Close 之后错误地调用方法，程序就会panic。  
+
+## 使用bzip包
+下面的程序，使用上面的程序包实现bzip2压缩命令。用起来和很多UNIX系统上面的 bzip2 命令相似：
+```go
+// bzipper 读取输入、使用 bzip2 压缩然后输出数据
+package main
+
+import (
+	"io"
+	"log"
+	"os"
+
+	"gopl/bzip"
+)
+
+func main() {
+	w := bzip.NewWriter(os.Stdout)
+	if _, err := io.Copy(w, os.Stdin); err != nil {
+		log.Fatalf("bzipper: %v\n", err)
+	}
+	if err := w.Close(); err != nil {
+		log.Fatalf("bzipper: close: %v\n", err)
+	}
+}
+```
+
+## 总结
+这里演示了如何将C库链接进Go程序中。（*反过来，可以将Go程序编译为静态库然后链接进C程序中，也可以编译为动态库通过C程序来加载和共享*）  
+另外还有一些别的问题。  
+
+**没有bzip2库**  
+这里的例子是假设已经安装了 bzip2 库。如果是安装位置不对，可以修改 #cgo 来解决。另外，也有人提供了不用依赖本机上的 bzip2 库的实现。  
+这里有一个从纯C代码生成的cgo绑定，不依赖bzip2静态库和操作系统的具体环境，具体请访问 https://github.com/chai2010/bzip2  
+
+**并发安全问题**  
+上面的实现中，结构体 writer 不是并发安全的。并且并发调用 Close 和 Write 也会导致C代码崩溃。这个问题可以用加锁的方式来避免，使用 sync\.Mutex 可以保证 bzip2\.writer 在多个goroutines中被并发调用是安全的。  
+
+**os/exec 包的实现**  
+开篇提到了还有一种实现方式：用 os/exec 包以辅助子进程的方式来调用C程序。  
+可以使用 os/exec 包将 /bin/bzip2 命令作为一个子进程执行。实现一个纯Go的 bzip\.NewWriter 来替代原来的实现。这样就是一个纯Go的实现，不需要C言语的基础。不过虽然是纯Go的实现，但还是要依赖本机能够运行 /bin/bzaip2 命令的。  
+
+# 扩展内容
+「GCTT 出品」Cgo 和 Python：  
+https://studygolang.com/articles/13019?fr=sidebar
