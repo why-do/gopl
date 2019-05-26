@@ -2,7 +2,7 @@
 package bzip
 
 /*
-#cgo CFLAGS: -I/usr/include
+#cgo CFLAGS: -I H:/Go/src/gopl/output/cgo/bzip2
 #cgo LDFLAGS: -L/usr/lib -lbz2
 #include <bzlib.h>
 #include <stdlib.h>

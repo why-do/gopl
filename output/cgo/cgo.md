@@ -1,3 +1,13 @@
+这篇放弃了
+bzip2没有Windows版本，虽然能下到 bzlib.h 文件，但是 /usr/lib -lbz2 没解决。这个在Linux上安装
+```
+yum install bzip2-evel
+```
+就解决了。
+
+这样就没法在Windwos上运行了。第二节的在Windwos上安装gcc也就多余了。
+最后 Cgo 和 Python 用到的库 github.com/sbinet/go-python ，主要是python2.7并且是Linux平台。要想直接拿来用也是不行的。
+
 # 13.4 使用 cgo 调用 C 代码
 cgo 是用来为 C 函数创建 Go 绑定的工具。诸如此类的工具都叫作**外部函数接口**（FFI）。  
 其他的工具还有，比如SWIG（sig\.org）是另一个工具，它提供了更加复杂的特性用来集成C++的类，这个不讲。
@@ -30,7 +40,6 @@ bzip2 算法基于优雅的 Burrows-Wheeler 变换，它和 gzip 相比速度要
 但是对于BZ2_bzCompress，我们将定义一个C语言的包装函数，用它完成真正的工作。下面是C代码，和其他Go文件放在同一个包下：
 ```c
 // bzip 包中的文件 bzip2.c
-
 // 对 libbzip2 的简单包装，适合 cgo 使用
 #include <bzlib.h>
 
@@ -200,6 +209,73 @@ func main() {
 **os/exec 包的实现**  
 开篇提到了还有一种实现方式：用 os/exec 包以辅助子进程的方式来调用C程序。  
 可以使用 os/exec 包将 /bin/bzip2 命令作为一个子进程执行。实现一个纯Go的 bzip\.NewWriter 来替代原来的实现。这样就是一个纯Go的实现，不需要C言语的基础。不过虽然是纯Go的实现，但还是要依赖本机能够运行 /bin/bzaip2 命令的。  
+
+# 安装cgo环境
+MinGW（Minimalist GNU For Windows），是个精简的Windows平台C/C++、ADA及Fortran编译器，相比Cygwin而言，体积要小很多，使用较为方便。  
+实际上也没那么方便...  
+
+## 错误信息
+首先，会遇到下面的报错：
+```
+exec: "gcc": executable file not found in %PATH%
+```
+这是因为缺少gcc编译器。  
+
+另外如果装好了，可能还会遇到这个问题：
+```
+cc1.exe: sorry, unimplemented: 64-bit mode not compiled in
+```
+这是因为需要安装一个64位的版本。  
+
+最后还会有一个小问题的报错，类似下面这样：
+```
+.\main.go:9:45: could not determine kind of name for C.FLT_MAX
+```
+看这个报错的内容是我们的代码的问题。其实就是 cgo 注释必须紧挨着 `import "C"`，中间不能有空行。  
+
+## 下载安装
+可以去这里下载：  
+https://sourceforge.net/projects/mingw-w64/  
+不过这只是一个在线安装程序。应该是国外的资源，在线安装无法成功。  
+还可以直接去下载编译好的版本，资源都在页面的Files分页里查找。因为有一些编译的选项来适配各种系统和版本，下载了下面路径下的文件：
+```
+Home/Toolchains targetting Win64/Personal Builds/mingw-builds/8.1.0/threads-win32/seh/
+```
+文件名是这个：`x86_64-8.1.0-release-win32-seh-rt_v6-rev0.7z`
+具体的下载地址是：  
+https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/7.3.0/threads-win32/seh/x86_64-7.3.0-release-win32-seh-rt_v5-rev0.7z  
+因为是编译好的版本，无需安装直接解压就可以了。  
+
+## 设置环境变量
+解压后放在系统的某个目录下，比如 gcc\.exe 这个文件的路径是这个：`D:\MinGW\bin\gcc.exe`。下面就按这个路径来设置环境变量。  
+我的电脑->属性->高级系统设置，在“高级”分页下的“环境变量...”里就可以设置环境变量。  
+添加一条环境变量：
+
+| 变量（KET） | 值（VALUE） |
+| --- | --- |
+| MinGW | D:\MinGW |
+
+然后在已有的环境变量 `Path` 里添加一项 `%MinGW%\bin`，到此设置完成。  
+
+| 变量（KET） | 值（VALUE） |
+| --- | --- |
+| Path | 省略其他已有的值...;%MinGW%\bin; |
+
+## 运行一个简单cgo程序
+下面是一段简单的cgo代码：
+```go
+package main
+
+// #include <float.h>
+import "C"
+import "fmt"
+
+func main() {
+	fmt.Println("Max float value of float is", C.FLT_MAX)
+}
+```
+就像普通的Go程序那样编译运行就好了。  
+
 
 # 扩展内容
 「GCTT 出品」Cgo 和 Python：  
