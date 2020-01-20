@@ -33,7 +33,7 @@ func main() {
 
 	select { // 等待后台 goroutine 完成
 	case <-done1:
-	case <-done2: // 客户端主动断开后，值关闭写半边连接
+	case <-done2: // 客户端主动断开后，只关闭写半边连接
 		<-done1 // 继续等待服务端断开，就是等待全是打印完毕
 	}
 }
