@@ -2,6 +2,8 @@
 
 Go程序设计语言（The Go Programming Language）笔记
 
+源码地址：https://gitee.com/steeed/gopl
+
 ## 目录结构
 
 1. 每章节的示例，放在对应的 chX 目录下
